@@ -136,7 +136,10 @@ public sealed class StudioSteps
             var backdrop = page.Locator(".palette-backdrop");
             if (await backdrop.CountAsync() > 0)
             {
-                await backdrop.ClickAsync();
+                await backdrop.ClickAsync(new LocatorClickOptions
+                {
+                    Force = true
+                });
                 await page.WaitForTimeoutAsync(120);
             }
         }
