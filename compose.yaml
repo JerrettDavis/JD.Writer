@@ -1,0 +1,49 @@
+name: jdwriter
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: api
+    image: ghcr.io/jerrettdavis/jd.writer-api:dev
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      AI__Provider: ${AI_PROVIDER:-auto}
+      AI__Ollama__Endpoint: ${AI_OLLAMA_ENDPOINT:-http://host.docker.internal:11434}
+      AI__Ollama__Model: ${AI_OLLAMA_MODEL:-llama3.2:latest}
+      AI__Ollama__TimeoutSeconds: ${AI_OLLAMA_TIMEOUT_SECONDS:-45}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "18081:8080"
+    profiles: ["client-server"]
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: web
+    image: ghcr.io/jerrettdavis/jd.writer-web:dev
+    environment:
+      ASPNETCORE_ENVIRONMENT: ClientServer
+      ApiServiceBaseUrl: http://api:8080
+      AiClient__Mode: remote
+    depends_on:
+      - api
+    ports:
+      - "18080:8080"
+    profiles: ["client-server"]
+
+  web-standalone:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: web-standalone
+    image: ghcr.io/jerrettdavis/jd.writer-web-standalone:dev
+    environment:
+      ASPNETCORE_ENVIRONMENT: ClientOnly
+      AiClient__Mode: local
+    ports:
+      - "18082:8080"
+    profiles: ["client-only"]

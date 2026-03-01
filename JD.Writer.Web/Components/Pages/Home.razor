@@ -1,0 +1,264 @@
+@page "/"
+@using Markdig
+
+<PageTitle>JD.Writer Studio</PageTitle>
+
+<div class="studio-frame">
+    <header class="studio-header">
+        <div>
+            <p class="eyebrow">
+                <svg class="icon icon-eyebrow" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M4 19.5V22h2.5L17.1 11.4l-2.5-2.5L4 19.5Zm15.7-9.3c.4-.4.4-1 0-1.4l-1.5-1.5c-.4-.4-1-.4-1.4 0l-1.2 1.2 2.5 2.5 1.6-1.8Z" />
+                </svg>
+                JD.Writer
+            </p>
+            <h1>Markdown Studio</h1>
+            <p class="subtitle">Local-first drafting with command palette, slash commands, and plugins.</p>
+        </div>
+        <div class="header-status">
+            <span class="status-pill">
+                <svg class="icon icon-pill ai" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M12 2a3 3 0 0 0-3 3v1.1A6 6 0 0 0 6.1 9H5a3 3 0 0 0 0 6h1.1A6 6 0 0 0 9 17.9V19a3 3 0 1 0 6 0v-1.1a6 6 0 0 0 2.9-2.9H19a3 3 0 1 0 0-6h-1.1A6 6 0 0 0 15 6.1V5a3 3 0 0 0-3-3Zm-2 7.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm4 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z" />
+                </svg>
+                AI: @_lastAiSource
+            </span>
+            <span class="status-pill">
+                <svg class="icon icon-pill notes" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M6 3h8l4 4v14H6V3Zm2 4h6v2H8V7Zm0 4h8v2H8v-2Zm0 4h8v2H8v-2Z" />
+                </svg>
+                Notes: @_notes.Count
+            </span>
+            <span class="status-pill">
+                <svg class="icon icon-pill layers" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="m12 3 9 5-9 5-9-5 9-5Zm-9 8.5 9 5 9-5V15l-9 5-9-5v-3.5Zm0 7 9 5 9-5V20l-9 1-9-1v-1.5Z" />
+                </svg>
+                Layers: @ActiveLayerCount
+            </span>
+            <span class="status-pill @(_isVoiceRecording ? "live" : string.Empty)">
+                <svg class="icon icon-pill voice" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3Zm5-3a1 1 0 1 1 2 0 7 7 0 0 1-6 6.9V21h3a1 1 0 1 1 0 2H8a1 1 0 0 1 0-2h3v-3.1A7 7 0 0 1 5 11a1 1 0 1 1 2 0 5 5 0 0 0 10 0Z" />
+                </svg>
+                Voice: @(_isVoiceRecording ? "Recording" : "Ready")
+            </span>
+            <span class="status-pill" role="status" aria-live="polite">@_statusMessage</span>
+            <span class="status-pill">
+                <svg class="icon icon-pill key" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M4 6h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2Zm2 3v2h2V9H6Zm3 0v2h2V9H9Zm3 0v2h2V9h-2Zm3 0v2h3V9h-3Z" />
+                </svg>
+                Ctrl+K / Ctrl+M
+            </span>
+        </div>
+    </header>
+
+    <section class="studio-grid">
+        <aside class="note-rail">
+            <div class="rail-controls">
+                <label class="visually-hidden" for="note-search-input">Search notes</label>
+                <div class="input-with-icon">
+                    <svg class="icon icon-field search" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M10.5 3a7.5 7.5 0 0 1 5.9 12.1l4.2 4.2a1 1 0 0 1-1.4 1.4L15 16.5A7.5 7.5 0 1 1 10.5 3Zm0 2a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11Z" />
+                    </svg>
+                    <input id="note-search-input" class="search-box" placeholder="Find note" @bind="_searchText" @bind:event="oninput" />
+                </div>
+                <button class="ghost-button" @onclick="CreateNoteAsync">
+                    <svg class="icon icon-button add" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M11 5a1 1 0 1 1 2 0v6h6a1 1 0 1 1 0 2h-6v6a1 1 0 1 1-2 0v-6H5a1 1 0 1 1 0-2h6V5Z" />
+                    </svg>
+                    New
+                </button>
+            </div>
+            <div class="note-list">
+                @foreach (var note in FilteredNotes)
+                {
+                    <button class="note-item @(note.Id == _activeNoteId ? "active" : string.Empty)" @onclick="() => SelectNote(note.Id)">
+                        <strong>@note.Title</strong>
+                        <span>@FormatPreview(note.Content)</span>
+                        <time>
+                            <svg class="icon icon-meta time" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                <path d="M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18Zm0 2a7 7 0 1 0 0 14 7 7 0 0 0 0-14Zm1 3v4.6l3 1.7-1 1.7-4-2.3V8h2Z" />
+                            </svg>
+                            @note.UpdatedAt.ToLocalTime().ToString("MMM d h:mm tt")
+                        </time>
+                    </button>
+                }
+            </div>
+        </aside>
+
+        <main class="editor-pane">
+            @if (ActiveNote is null)
+            {
+                <div class="empty-state">
+                    <h2>Create your first note</h2>
+                    <button class="solid-button" @onclick="CreateNoteAsync">
+                        <svg class="icon icon-button add" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                            <path d="M11 5a1 1 0 1 1 2 0v6h6a1 1 0 1 1 0 2h-6v6a1 1 0 1 1-2 0v-6H5a1 1 0 1 1 0-2h6V5Z" />
+                        </svg>
+                        Create note
+                    </button>
+                </div>
+            }
+            else
+            {
+                <div class="editor-toolbar">
+                    <label class="visually-hidden" for="note-title-input">Note title</label>
+                    <input id="note-title-input" class="title-input" value="@ActiveNote.Title" @oninput="HandleTitleInput" placeholder="Untitled note" />
+                    <div class="toolbar-actions">
+                        <button class="ghost-button" @onclick="OpenPaletteAsync">
+                            <svg class="icon icon-button palette" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                <path d="M12 3a9 9 0 0 0 0 18h1.6a2.4 2.4 0 0 0 0-4.8H12a2 2 0 0 1 0-4h2.5a6.5 6.5 0 0 0 0-13H12Zm-4 6a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm4-2a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm4 2a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z" />
+                            </svg>
+                            Palette
+                        </button>
+                        <button class="ghost-button" @onclick="RefreshAssistantPanelsAsync">
+                            <svg class="icon icon-button refresh" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                <path d="M20 4v6h-6l2.3-2.3A6 6 0 1 0 18 13a1 1 0 1 1 2 0 8 8 0 1 1-2.8-6.1L20 4Z" />
+                            </svg>
+                            Refresh
+                        </button>
+                        <button class="ghost-button @(_isVoiceRecording ? "recording" : string.Empty)" @onclick="ToggleVoiceCaptureAsync">
+                            <svg class="icon icon-button voice" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3Zm5-3a1 1 0 1 1 2 0 7 7 0 0 1-6 6.9V21h3a1 1 0 1 1 0 2H8a1 1 0 0 1 0-2h3v-3.1A7 7 0 0 1 5 11a1 1 0 1 1 2 0 5 5 0 0 0 10 0Z" />
+                            </svg>
+                            Mic (@(_isVoiceRecording ? "On" : "Off"))
+                        </button>
+                        <button class="ghost-button" @onclick="ContinueWithAiAsync" disabled="@_isBusy">
+                            <svg class="icon icon-button ai" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                <path d="M12 2a3 3 0 0 0-3 3v1.1A6 6 0 0 0 6.1 9H5a3 3 0 0 0 0 6h1.1A6 6 0 0 0 9 17.9V19a3 3 0 1 0 6 0v-1.1a6 6 0 0 0 2.9-2.9H19a3 3 0 1 0 0-6h-1.1A6 6 0 0 0 15 6.1V5a3 3 0 0 0-3-3Z" />
+                            </svg>
+                            AI Continue
+                        </button>
+                        <button class="ghost-button" @onclick="DownloadActiveNoteAsync">
+                            <svg class="icon icon-button export" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                <path d="M12 3a1 1 0 0 1 1 1v8.6l2.3-2.3a1 1 0 0 1 1.4 1.4l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 0 1 1.4-1.4L11 12.6V4a1 1 0 0 1 1-1Zm-7 14a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1Z" />
+                            </svg>
+                            Export
+                        </button>
+                    </div>
+                </div>
+
+                <div class="editor-surface">
+                    <div class="editor-panel">
+                        <label for="note-draft-input">
+                            <svg class="icon icon-label draft" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                <path d="M4 19.5V22h2.5L17.1 11.4l-2.5-2.5L4 19.5Zm15.7-9.3c.4-.4.4-1 0-1.4l-1.5-1.5c-.4-.4-1-.4-1.4 0l-1.2 1.2 2.5 2.5 1.6-1.8Z" />
+                            </svg>
+                            Draft
+                        </label>
+                        <textarea class="editor-input"
+                                  id="note-draft-input"
+                                  @ref="_editorInput"
+                                  value="@ActiveNote.Content"
+                                  @oninput="HandleDraftInput"
+                                  @onkeydown="HandleEditorKeyDown"
+                                  placeholder="Start typing markdown..."></textarea>
+
+                        <div class="editor-command-row">
+                            @if (!string.IsNullOrWhiteSpace(_autocompleteSuggestion))
+                            {
+                                <button class="hint-chip" @onclick="AcceptAutocompleteAsync">
+                                    <svg class="icon icon-button hint" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                        <path d="m12 2 2.1 4.8L19 9l-4.9 2.2L12 16l-2.1-4.8L5 9l4.9-2.2L12 2Zm8 11 1 2.3L23 16l-2 1 .7 2-1.7-1-1.7 1 .7-2-2-1 2-.7L20 13Zm-16 0 1 2.3L7 16l-2 1 .7 2L4 18l-1.7 1 .7-2-2-1 2-.7L4 13Z" />
+                                    </svg>
+                                    Autocomplete: @ActiveWord@_autocompleteSuggestion
+                                </button>
+                            }
+                            <span class="editor-hint">`/` slash command, `Ctrl+K` palette, `Ctrl+J` continue, `Ctrl+M` voice</span>
+                        </div>
+
+                        @if (_slashSuggestions.Count > 0)
+                        {
+                            <div class="slash-popover">
+                                @foreach (var command in _slashSuggestions)
+                                {
+                                    <button class="slash-item" @onclick="() => ApplySlashCommandAsync(command)">
+                                        <strong>/@command.Name</strong>
+                                        <span>@command.Description</span>
+                                    </button>
+                                }
+                            </div>
+                        }
+                    </div>
+
+                    <div class="preview-panel">
+                        <div class="preview-head">
+                            <p class="preview-label">
+                                <svg class="icon icon-label preview" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                    <path d="M12 5c5.5 0 9.5 4.8 10.8 6.7a.6.6 0 0 1 0 .6C21.5 14.2 17.5 19 12 19S2.5 14.2 1.2 12.3a.6.6 0 0 1 0-.6C2.5 9.8 6.5 5 12 5Zm0 2C7.9 7 4.6 10.4 3.3 12 4.6 13.6 7.9 17 12 17s7.4-3.4 8.7-5C19.4 10.4 16.1 7 12 7Zm0 2.2a2.8 2.8 0 1 1 0 5.6 2.8 2.8 0 0 1 0-5.6Z" />
+                                </svg>
+                                Preview
+                            </p>
+
+                            <label class="preview-theme-picker" for="preview-render-theme">
+                                <svg class="icon icon-field theme" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                    <path d="M12 3a9 9 0 1 0 0 18h1.6a2.4 2.4 0 0 0 0-4.8H12a2 2 0 0 1 0-4h2.5a6.5 6.5 0 0 0 0-13H12Zm-4 6a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm4-2a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm4 2a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z" />
+                                </svg>
+                                <span class="visually-hidden">Preview render theme</span>
+                                <select id="preview-render-theme"
+                                        class="preview-theme-select"
+                                        data-testid="preview-render-theme"
+                                        value="@_previewTheme"
+                                        @onchange="HandlePreviewThemeChangedAsync">
+                                    @foreach (var theme in AvailablePreviewThemes)
+                                    {
+                                        <option value="@theme.Id">@theme.Label</option>
+                                    }
+                                </select>
+                            </label>
+                        </div>
+                        <article class="preview-content preview-theme-@_previewTheme" data-testid="preview-content">@((MarkupString)RenderMarkdown(ActiveNote.Content))</article>
+                    </div>
+                </div>
+            }
+        </main>
+
+        <aside class="assistant-rail">
+            @foreach (var panel in AllPanels)
+            {
+                <section class="tool-window">
+                    <header>
+                        <h2>@panel.Title</h2>
+                        <small>@panel.Description</small>
+                    </header>
+                    <ul>
+                        @foreach (var item in panel.Items)
+                        {
+                            <li>@item</li>
+                        }
+                    </ul>
+                </section>
+            }
+        </aside>
+    </section>
+</div>
+
+@if (_isPaletteOpen)
+{
+    <div class="palette-backdrop" @onclick="ClosePalette"></div>
+    <section class="command-palette" @onclick:stopPropagation>
+        <label class="visually-hidden" for="command-palette-input">Command palette input</label>
+        <input class="palette-input"
+               id="command-palette-input"
+               @ref="_paletteInput"
+               @bind="_paletteQuery"
+               @bind:event="oninput"
+               @onkeydown="HandlePaletteKeyDown"
+               placeholder="Type a command..." />
+        <div class="palette-list">
+            @if (PaletteResults.Count == 0)
+            {
+                <div class="palette-empty">No commands matched.</div>
+            }
+            else
+            {
+                @for (var i = 0; i < PaletteResults.Count; i++)
+                {
+                    var command = PaletteResults[i];
+                    <button class="palette-item @(i == _paletteIndex ? "active" : string.Empty)" @onclick="() => ExecutePaletteCommandAsync(command)">
+                        <strong>@command.Title</strong>
+                        <span>@command.Description</span>
+                    </button>
+                }
+            }
+        </div>
+    </section>
+}

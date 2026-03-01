@@ -1,0 +1,59 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.rsuser
+
+## Visual Studio / Rider
+.vs/
+.idea/
+*.sln.iml
+_ReSharper*/
+
+## Build outputs
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Bb]uild[Ll]og.*
+artifacts/
+
+## NuGet
+*.nupkg
+*.snupkg
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+project.lock.json
+project.fragment.lock.json
+
+## Test / coverage
+[Tt]est[Rr]esult*/
+TestResults/
+coverage/
+coverage-report/
+*.coverage
+*.coveragexml
+*.trx
+
+## DocFX
+docs/_site/
+docs/api/
+!docs/api/index.md
+
+## Node / web tooling
+node_modules/
+
+## OS
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+
+## Local scratch
+tmpclaude-*/
+*.tmp
+

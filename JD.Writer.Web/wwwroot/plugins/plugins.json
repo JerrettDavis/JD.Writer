@@ -1,0 +1,38 @@
+{
+  "slashCommands": [
+    {
+      "name": "standup-template",
+      "description": "Insert a daily standup markdown template.",
+      "kind": "template",
+      "template": "## Daily Standup\n\n### Done\n- \n\n### Next\n- \n\n### Blockers\n- \n"
+    },
+    {
+      "name": "risk-scan",
+      "description": "Ask AI for an explicit risk and mitigation scan.",
+      "kind": "ai",
+      "prompt": "Analyze this draft for execution risks. Return concise markdown with risks, impact, and mitigations."
+    },
+    {
+      "name": "tighten",
+      "description": "Rewrite draft in a tighter, more direct style.",
+      "kind": "ai",
+      "prompt": "Rewrite this draft to be tighter and clearer while preserving intent. Return markdown only."
+    }
+  ],
+  "panels": [
+    {
+      "id": "plugin-risks",
+      "title": "Risk Radar",
+      "description": "Surfaces delivery and scope risks while drafting.",
+      "mode": "plugin-risks",
+      "prompt": "List concise delivery risks and mitigations based on the draft."
+    },
+    {
+      "id": "plugin-questions",
+      "title": "Open Questions",
+      "description": "Highlights assumptions to verify next.",
+      "mode": "plugin-questions",
+      "prompt": "List unanswered questions and unknowns from this draft."
+    }
+  ]
+}

@@ -1,0 +1,130 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  DOTNET_NOLOGO: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+jobs:
+  pr-checks:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore JD.Writer.sln
+
+      - name: Build (Release)
+        run: >
+          dotnet build JD.Writer.sln
+          --configuration Release
+          --no-restore
+          /p:ContinuousIntegrationBuild=true
+
+      - name: Test
+        run: >
+          dotnet test JD.Writer.sln
+          --configuration Release
+          --no-build
+          --verbosity normal
+          --logger "trx;LogFileName=test-results.trx"
+
+      - name: Publish test results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: |
+            **/TestResults/**/*.trx
+          check_name: Test Results
+
+  main-build:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Determine version (NBGV)
+        id: nbgv
+        uses: dotnet/nbgv@master
+        with:
+          setAllVars: true
+
+      - name: Restore
+        run: dotnet restore JD.Writer.sln
+
+      - name: Build (Release)
+        run: >
+          dotnet build JD.Writer.sln
+          --configuration Release
+          --no-restore
+          /p:ContinuousIntegrationBuild=true
+
+      - name: Test (Release)
+        run: >
+          dotnet test JD.Writer.sln
+          --configuration Release
+          --no-build
+          --verbosity normal
+          --logger "trx;LogFileName=test-results.trx"
+
+      - name: Publish release model artifacts
+        run: |
+          mkdir -p ./artifacts/client-server ./artifacts/client-only ./artifacts/docker
+
+          dotnet publish JD.Writer.Web/JD.Writer.Web.csproj \
+            --configuration Release \
+            --no-build \
+            --output ./artifacts/client-server/web
+
+          dotnet publish JD.Writer.ApiService/JD.Writer.ApiService.csproj \
+            --configuration Release \
+            --no-build \
+            --output ./artifacts/client-server/api
+
+          dotnet publish JD.Writer.AppHost/JD.Writer.AppHost.csproj \
+            --configuration Release \
+            --no-build \
+            --output ./artifacts/client-server/apphost
+
+          dotnet publish JD.Writer.Web/JD.Writer.Web.csproj \
+            --configuration Release \
+            --no-build \
+            --output ./artifacts/client-only/web
+
+          cp Dockerfile ./artifacts/docker/Dockerfile
+          cp compose.yaml ./artifacts/docker/compose.yaml
+          cp .dockerignore ./artifacts/docker/.dockerignore
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: build-artifacts-v${{ env.NBGV_NuGetPackageVersion }}
+          path: ./artifacts

@@ -1,0 +1,96 @@
+name: PR Validation
+
+on:
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - ".vscode/**"
+
+env:
+  DOTNET_NOLOGO: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+jobs:
+  validate-pr:
+    name: Validate PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Determine version (NBGV)
+        id: nbgv
+        uses: dotnet/nbgv@master
+        with:
+          setAllVars: true
+
+      - name: Restore
+        run: dotnet restore JD.Writer.sln
+
+      - name: Build
+        run: >
+          dotnet build JD.Writer.sln
+          --configuration Release
+          --no-restore
+          /p:ContinuousIntegrationBuild=true
+          /p:Deterministic=true
+
+      - name: Run tests
+        run: >
+          dotnet test JD.Writer.sln
+          --configuration Release
+          --no-build
+          --verbosity normal
+          --logger "trx;LogFileName=test-results.trx"
+
+      - name: Publish test results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: |
+            **/TestResults/**/*.trx
+          check_name: Test Results
+
+      - name: Dry-run publish (release models)
+        run: |
+          mkdir -p ./dry-run-publish
+          mkdir -p ./dry-run-publish/client-server ./dry-run-publish/client-only ./dry-run-publish/docker
+
+          dotnet publish JD.Writer.Web/JD.Writer.Web.csproj --configuration Release --no-build --output ./dry-run-publish/client-server/web
+          dotnet publish JD.Writer.ApiService/JD.Writer.ApiService.csproj --configuration Release --no-build --output ./dry-run-publish/client-server/api
+          dotnet publish JD.Writer.AppHost/JD.Writer.AppHost.csproj --configuration Release --no-build --output ./dry-run-publish/client-server/apphost
+          dotnet publish JD.Writer.Web/JD.Writer.Web.csproj --configuration Release --no-build --output ./dry-run-publish/client-only/web
+
+          cp Dockerfile ./dry-run-publish/docker/Dockerfile
+          cp compose.yaml ./dry-run-publish/docker/compose.yaml
+          cp .dockerignore ./dry-run-publish/docker/.dockerignore
+
+      - name: Upload dry-run artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: dry-run-publish
+          path: ./dry-run-publish
+          retention-days: 7
+
+      - name: PR Summary
+        if: always()
+        run: |
+          echo "## PR Validation Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Version: \`${NBGV_NuGetPackageVersion}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Solution: \`JD.Writer.sln\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Dry-run publish artifacts uploaded (client-server/client-only/docker)" >> $GITHUB_STEP_SUMMARY

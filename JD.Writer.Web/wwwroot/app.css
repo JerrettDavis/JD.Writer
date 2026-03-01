@@ -1,0 +1,38 @@
+:root {
+    color-scheme: light dark;
+    --app-bg: #e9eff8;
+    --app-text: #111827;
+    --app-link: #1a345f;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    min-height: 100%;
+}
+
+body {
+    color: var(--app-text);
+    background: var(--app-bg);
+    transition: color 220ms ease, background-color 220ms ease;
+}
+
+a {
+    color: var(--app-link);
+}
+
+#blazor-error-ui {
+    font-size: 0.9rem;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --app-bg: #070c16;
+        --app-text: #e2e9f8;
+        --app-link: #a8c9ff;
+    }
+}

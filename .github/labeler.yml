@@ -1,0 +1,28 @@
+docs:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "docs/**"
+          - "**/*.md"
+
+frontend:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "JD.Writer.Web/**"
+
+api:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "JD.Writer.ApiService/**"
+
+infra:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "JD.Writer.AppHost/**"
+          - "JD.Writer.ServiceDefaults/**"
+          - ".github/**"
+
+tests:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "JD.Writer.E2E/**"
+

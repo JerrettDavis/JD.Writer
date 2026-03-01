@@ -1,0 +1,68 @@
+{
+  "metadata": [
+    {
+      "src": [
+        {
+          "src": "..",
+          "files": [
+            "JD.Writer.ApiService/**/*.csproj",
+            "JD.Writer.Web/**/*.csproj",
+            "JD.Writer.AppHost/**/*.csproj",
+            "JD.Writer.ServiceDefaults/**/*.csproj"
+          ]
+        }
+      ],
+      "dest": "api",
+      "properties": {
+        "TargetFramework": "net10.0"
+      },
+      "includePrivateMembers": false,
+      "disableDefaultFilter": false,
+      "allowCompilationErrors": false
+    }
+  ],
+  "build": {
+    "content": [
+      {
+        "files": [
+          "api/**.yml",
+          "api/index.md"
+        ]
+      },
+      {
+        "files": [
+          "*.md",
+          "toc.yml"
+        ]
+      }
+    ],
+    "resource": [
+      {
+        "files": [
+          "images/**",
+          "studio/**"
+        ]
+      }
+    ],
+    "output": "_site",
+    "template": [
+      "default",
+      "modern"
+    ],
+    "globalMetadata": {
+      "_appName": "JD.Writer",
+      "_appTitle": "JD.Writer Documentation",
+      "_appFooter": "JD.Writer — MIT License",
+      "_description": "Local-first markdown studio with AI-assisted workflows.",
+      "_copyright": "Copyright (c) 2026 Jerrett Davis",
+      "_enableSearch": true,
+      "_disableContribution": false,
+      "_gitContribute": {
+        "repo": "https://github.com/JerrettDavis/JD.Writer",
+        "branch": "main"
+      },
+      "_gitUrlPattern": "github",
+      "_siteUrl": "https://jerrettdavis.github.io/JD.Writer/"
+    }
+  }
+}

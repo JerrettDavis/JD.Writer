@@ -1,0 +1,95 @@
+name: Integration Tests
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+    inputs:
+      ollama_model:
+        description: "Ollama model to pull and use"
+        required: false
+        default: "qwen2.5:0.5b"
+
+env:
+  DOTNET_NOLOGO: true
+  OLLAMA_MODEL: ${{ inputs.ollama_model || 'qwen2.5:0.5b' }}
+  AI__Ollama__Model: ${{ inputs.ollama_model || 'qwen2.5:0.5b' }}
+
+permissions:
+  contents: read
+  checks: write
+
+jobs:
+  integration:
+    name: Integration (Ollama + E2E)
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    services:
+      ollama:
+        image: ollama/ollama:latest
+        ports:
+          - 11434:11434
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Wait for Ollama
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:11434/api/version > /dev/null 2>&1; then
+              echo "Ollama ready on attempt $i"
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "Ollama failed to start"
+          exit 1
+
+      - name: Pull Ollama model
+        run: |
+          echo "Pulling model: $OLLAMA_MODEL"
+          curl -sf http://localhost:11434/api/pull \
+            -d "{\"name\":\"$OLLAMA_MODEL\"}" \
+            | while IFS= read -r line; do
+                status=$(echo "$line" | jq -r '.status // empty' 2>/dev/null)
+                if [ -n "$status" ]; then
+                  echo "$status"
+                fi
+              done
+
+      - name: Restore
+        run: dotnet restore JD.Writer.sln
+
+      - name: Build
+        run: >
+          dotnet build JD.Writer.sln
+          --configuration Release
+          --no-restore
+          /p:ContinuousIntegrationBuild=true
+
+      - name: Run E2E suite
+        run: >
+          dotnet test JD.Writer.E2E/JD.Writer.E2E.csproj
+          --configuration Release
+          --no-build
+          --verbosity normal
+          --logger "trx;LogFileName=e2e-integration.trx"
+
+      - name: Publish test results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: |
+            **/TestResults/**/*.trx
+          check_name: Integration Test Results
+

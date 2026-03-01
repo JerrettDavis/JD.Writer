@@ -1,0 +1,7 @@
+{
+  "$schema": "https://raw.githubusercontent.com/reqnroll/Reqnroll/master/Reqnroll/reqnroll.schema.json",
+  "bindingCulture": {
+    "name": "en-US"
+  },
+  "stepAssemblies": []
+}

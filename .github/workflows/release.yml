@@ -1,0 +1,186 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (e.g., 0.1.0)"
+        required: true
+        type: string
+
+env:
+  DOTNET_NOLOGO: true
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Release version: $VERSION"
+
+      - name: Restore
+        run: dotnet restore JD.Writer.sln
+
+      - name: Build
+        run: >
+          dotnet build JD.Writer.sln
+          --configuration Release
+          --no-restore
+          /p:ContinuousIntegrationBuild=true
+
+      - name: Test
+        run: >
+          dotnet test JD.Writer.sln
+          --configuration Release
+          --no-build
+
+      - name: Publish release model artifacts
+        run: |
+          mkdir -p artifacts/client-server artifacts/client-only artifacts/docker
+
+          dotnet publish JD.Writer.Web/JD.Writer.Web.csproj --configuration Release --no-build --output artifacts/client-server/web
+          dotnet publish JD.Writer.ApiService/JD.Writer.ApiService.csproj --configuration Release --no-build --output artifacts/client-server/api
+          dotnet publish JD.Writer.AppHost/JD.Writer.AppHost.csproj --configuration Release --no-build --output artifacts/client-server/apphost
+
+          dotnet publish JD.Writer.Web/JD.Writer.Web.csproj --configuration Release --no-build --output artifacts/client-only/web
+
+          cat > artifacts/client-only/run-client-only.sh <<'SCRIPT'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          export ASPNETCORE_ENVIRONMENT=ClientOnly
+          export AiClient__Mode=local
+          dotnet JD.Writer.Web.dll
+          SCRIPT
+          chmod +x artifacts/client-only/run-client-only.sh
+
+          cat > artifacts/client-only/run-client-only.ps1 <<'SCRIPT'
+          $env:ASPNETCORE_ENVIRONMENT = "ClientOnly"
+          $env:AiClient__Mode = "local"
+          dotnet JD.Writer.Web.dll
+          SCRIPT
+
+          cp Dockerfile artifacts/docker/Dockerfile
+          cp compose.yaml artifacts/docker/compose.yaml
+          cp .dockerignore artifacts/docker/.dockerignore
+          cp docs/RELEASE_MODELS.md artifacts/docker/RELEASE_MODELS.md
+
+      - name: Archive release artifacts
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+
+          tar -czf jd-writer-client-server-web-${VERSION}.tar.gz -C artifacts/client-server web
+          tar -czf jd-writer-client-server-api-${VERSION}.tar.gz -C artifacts/client-server api
+          tar -czf jd-writer-client-server-apphost-${VERSION}.tar.gz -C artifacts/client-server apphost
+          tar -czf jd-writer-client-only-web-${VERSION}.tar.gz -C artifacts/client-only .
+          tar -czf jd-writer-docker-bundle-${VERSION}.tar.gz -C artifacts/docker .
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Lowercase repository name
+        id: repo
+        run: echo "name=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          target: api
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/${{ steps.repo.outputs.name }}/jd-writer-api:${{ steps.version.outputs.version }}
+            ghcr.io/${{ steps.repo.outputs.name }}/jd-writer-api:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push Web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          target: web
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/${{ steps.repo.outputs.name }}/jd-writer-web:${{ steps.version.outputs.version }}
+            ghcr.io/${{ steps.repo.outputs.name }}/jd-writer-web:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push standalone Web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          target: web-standalone
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/${{ steps.repo.outputs.name }}/jd-writer-web-standalone:${{ steps.version.outputs.version }}
+            ghcr.io/${{ steps.repo.outputs.name }}/jd-writer-web-standalone:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: Release v${{ steps.version.outputs.version }}
+          generate_release_notes: true
+          files: |
+            jd-writer-client-server-web-${{ steps.version.outputs.version }}.tar.gz
+            jd-writer-client-server-api-${{ steps.version.outputs.version }}.tar.gz
+            jd-writer-client-server-apphost-${{ steps.version.outputs.version }}.tar.gz
+            jd-writer-client-only-web-${{ steps.version.outputs.version }}.tar.gz
+            jd-writer-docker-bundle-${{ steps.version.outputs.version }}.tar.gz
+
+      - name: Release summary
+        run: |
+          echo "## Release Models" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Client/server archives published" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Client-only standalone archive published" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Docker bundle archive published" >> "$GITHUB_STEP_SUMMARY"
+          echo "- GHCR images:" >> "$GITHUB_STEP_SUMMARY"
+          echo "  - ghcr.io/${{ steps.repo.outputs.name }}/jd-writer-api:${{ steps.version.outputs.version }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "  - ghcr.io/${{ steps.repo.outputs.name }}/jd-writer-web:${{ steps.version.outputs.version }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "  - ghcr.io/${{ steps.repo.outputs.name }}/jd-writer-web-standalone:${{ steps.version.outputs.version }}" >> "$GITHUB_STEP_SUMMARY"

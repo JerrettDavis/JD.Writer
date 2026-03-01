@@ -1,0 +1,33 @@
+.main-layout {
+    min-height: 100vh;
+}
+
+#blazor-error-ui {
+    background: #fef3c7;
+    border-top: 1px solid #f59e0b;
+    bottom: 0;
+    box-shadow: 0 -4px 16px rgba(15, 23, 42, 0.1);
+    display: none;
+    font-family: "Manrope", "Segoe UI", sans-serif;
+    left: 0;
+    padding: 0.75rem 1.1rem;
+    position: fixed;
+    width: 100%;
+    z-index: 1000;
+}
+
+#blazor-error-ui .dismiss {
+    cursor: pointer;
+    position: absolute;
+    right: 0.75rem;
+    top: 0.5rem;
+}
+
+@media (prefers-color-scheme: dark) {
+    #blazor-error-ui {
+        background: #3d2b00;
+        border-top-color: #f4a826;
+        color: #ffe8b8;
+        box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.45);
+    }
+}

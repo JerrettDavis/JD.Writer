@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>JD.Writer Studio Lite</title>
+  <meta name="description" content="Client-only markdown studio for GitHub Pages." />
+  <link rel="stylesheet" href="./studio.css" />
+</head>
+<body>
+  <div class="grain" aria-hidden="true"></div>
+  <div class="app-shell">
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">JD.Writer Studio Lite</p>
+        <h1>Client-Only In-Browser Workspace</h1>
+        <p class="subtitle">Runs entirely on GitHub Pages with local storage and local AI heuristics.</p>
+      </div>
+      <div class="header-pills">
+        <span class="pill">Mode: <strong>client-only</strong></span>
+        <span class="pill">Source: <strong id="source-pill">local</strong></span>
+        <span class="pill">Notes: <strong id="note-count">0</strong></span>
+        <span class="pill">Shortcut: <strong>Ctrl+K</strong></span>
+      </div>
+    </header>
+
+    <main class="layout-grid">
+      <aside class="notes-pane panel">
+        <div class="pane-head">
+          <label for="search-notes" class="visually-hidden">Search notes</label>
+          <input id="search-notes" class="input" type="search" placeholder="Find note" />
+          <button id="new-note" class="button ghost" type="button">New</button>
+        </div>
+        <div id="note-list" class="note-list" aria-label="Notes"></div>
+      </aside>
+
+      <section class="editor-pane panel">
+        <div class="pane-head editor-head">
+          <label for="note-title" class="visually-hidden">Note title</label>
+          <input id="note-title" class="input title" type="text" placeholder="Untitled note" />
+          <div class="action-row">
+            <button id="continue-button" class="button" type="button">AI Continue</button>
+            <button id="export-button" class="button ghost" type="button">Export</button>
+            <button id="insights-button" class="button ghost" type="button">Refresh Insights</button>
+          </div>
+        </div>
+
+        <div class="editor-grid">
+          <div class="editor-col">
+            <label for="note-content">Draft</label>
+            <textarea id="note-content" spellcheck="true" placeholder="Start typing markdown..."></textarea>
+            <div class="editor-hints">
+              <button id="autocomplete-chip" class="chip" type="button" hidden></button>
+              <span class="hint-text">Use `/summarize`, `/outline`, `/action-items`, `Ctrl+J`, `Ctrl+Space`, `Ctrl+K`.</span>
+            </div>
+            <div id="slash-bar" class="slash-bar" hidden></div>
+          </div>
+
+          <article class="preview-col">
+            <div class="preview-head">
+              <label for="preview-theme">Preview</label>
+              <select id="preview-theme" class="select">
+                <option value="studio">Studio</option>
+                <option value="paper">Paper</option>
+                <option value="terminal">Terminal</option>
+                <option value="noir">Noir</option>
+              </select>
+            </div>
+            <div id="preview" class="preview theme-studio"></div>
+          </article>
+        </div>
+      </section>
+
+      <aside class="insights-pane panel">
+        <section class="tool-window">
+          <h2>Hints</h2>
+          <ul id="hints-list"></ul>
+        </section>
+        <section class="tool-window">
+          <h2>Help</h2>
+          <ul id="help-list"></ul>
+        </section>
+        <section class="tool-window">
+          <h2>Brainstorm</h2>
+          <ul id="brainstorm-list"></ul>
+        </section>
+      </aside>
+    </main>
+  </div>
+
+  <div id="palette-backdrop" class="palette-backdrop" hidden></div>
+  <section id="palette" class="palette" hidden aria-label="Command palette">
+    <label class="visually-hidden" for="palette-input">Command search</label>
+    <input id="palette-input" class="input" type="text" placeholder="Type a command..." />
+    <div id="palette-list" class="palette-list"></div>
+  </section>
+
+  <script src="./studio.js"></script>
+</body>
+</html>
