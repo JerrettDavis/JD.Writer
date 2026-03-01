@@ -1,22 +1,38 @@
 - name: Home
   href: index.md
-- name: Plan
-  href: PLAN.md
-- name: TODO
-  href: TODO.md
-- name: Swarm
-  href: SWARM.md
-- name: Acceptance Criteria
-  href: ACCEPTANCE_CRITERIA.md
-- name: Spec Coverage
-  href: SPEC_COVERAGE.md
-- name: E2E
-  href: E2E.md
-- name: Accessibility Audit
-  href: ACCESSIBILITY_AUDIT.md
-- name: Release Models
-  href: RELEASE_MODELS.md
-- name: Git Ready Checklist
-  href: GIT_READY_CHECKLIST.md
+- name: Guides
+  items:
+    - name: Getting Started
+      href: GETTING_STARTED.md
+    - name: User Guide
+      href: USER_GUIDE.md
+    - name: Release Models
+      href: RELEASE_MODELS.md
+    - name: Repository Publishing
+      href: GIT_READY_CHECKLIST.md
+- name: API
+  items:
+    - name: API Guide
+      href: API_DOCS.md
+    - name: API Reference
+      href: api/index.md
+- name: Quality
+  items:
+    - name: Acceptance Criteria
+      href: ACCEPTANCE_CRITERIA.md
+    - name: Spec Coverage
+      href: SPEC_COVERAGE.md
+    - name: End-to-End Testing
+      href: E2E.md
+    - name: Accessibility Audit
+      href: ACCESSIBILITY_AUDIT.md
+- name: Product and Engineering
+  items:
+    - name: Product Roadmap
+      href: PLAN.md
+    - name: Delivery Backlog
+      href: TODO.md
+    - name: Delivery Model
+      href: SWARM.md
 - name: Studio Lite
   href: studio/index.html

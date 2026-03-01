@@ -1,33 +1,39 @@
-# E2E Notes
+# End-to-End Testing Guide
 
 Project: `JD.Writer.E2E`
 
-## What These Tests Protect
+## Purpose
 
-- Core workspace loads and remains editable
-- Command palette and slash interactions work from keyboard
-- Voice capture interactions are deterministic in test mode
-- API routes produce valid output and stream payloads
-- Client-only mode still provides working AI continuation behavior
+The E2E suite validates user-critical workflows across UI and API boundaries.
 
-## Runtime Topology Used By Tests
+## Coverage Focus
+
+- Studio load, note editing, and markdown preview workflows
+- Command palette and slash command keyboard interactions
+- Voice capture toggling, live interim transcript flow, cleanup behavior, and persisted Voice Review audit logs
+- AI endpoint behavior including NDJSON streaming
+- Client-only continuation behavior without API dependency
+
+## Test Runtime Topology
 
 - API host: `http://127.0.0.1:19081`
 - Web host (full stack): `http://127.0.0.1:19080`
-- Web host (client-only scenario): `http://127.0.0.1:19082`
+- Web host (client-only mode): `http://127.0.0.1:19082`
 
-The web host points to the API via `ApiServiceBaseUrl` for deterministic local routing in full-stack tests.
+Full-stack web test host routes to API through `ApiServiceBaseUrl`.
 
-## Browser Install Behavior
+## Browser Provisioning
 
-By default, test hooks install Chromium via Playwright.
+Playwright Chromium is installed automatically by test hooks.
 
-To skip browser install when already present:
+Set `JDWRITER_SKIP_PLAYWRIGHT_INSTALL=1` to skip install when browser binaries are already present.
 
-- set `JDWRITER_SKIP_PLAYWRIGHT_INSTALL=1`
-
-## Run
+## Run the Suite
 
 ```powershell
 dotnet test C:/git/JD.Writer/JD.Writer.E2E/JD.Writer.E2E.csproj -c Release
 ```
+
+## CI Expectations
+
+E2E scenarios are part of pull request validation and should stay green for merge readiness.

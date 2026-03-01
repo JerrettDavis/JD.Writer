@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Security.Cryptography;
 using Markdig;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
@@ -11,6 +12,9 @@ public partial class Home : ComponentBase, IAsyncDisposable
 {
     private const int MaxLayersPerNote = 240;
     private const int MaxLayerSnapshotLength = 8000;
+    private const int MaxVoiceSessionsPerNote = 120;
+    private const int MaxVoiceEventsPerSession = 240;
+    private const int MaxVoiceEventTextLength = 1200;
     private const string DefaultPreviewTheme = "studio";
     private static readonly TimeSpan ManualLayerCoalesceWindow = TimeSpan.FromSeconds(5);
     private static readonly List<PreviewThemeOption> PreviewThemes =
@@ -43,6 +47,7 @@ public partial class Home : ComponentBase, IAsyncDisposable
     private readonly Dictionary<string, List<string>> _pluginPanelItems = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<SlashCommandDefinition> _slashSuggestions = [];
     private readonly SemaphoreSlim _voicePipelineLock = new(1, 1);
+    private readonly Dictionary<string, InsightCacheEntry> _insightCache = new(StringComparer.Ordinal);
 
     private string _activeNoteId = string.Empty;
     private string _searchText = string.Empty;
@@ -52,6 +57,13 @@ public partial class Home : ComponentBase, IAsyncDisposable
     private string _lastAiSource = "fallback";
     private string _previewTheme = DefaultPreviewTheme;
     private bool _isBusy;
+    private bool _isInitializing = true;
+    private bool _isRefreshingInsights;
+    private bool _isApplyingSlash;
+    private int _voiceProcessingCount;
+    private VoiceInterimRange? _voiceInterimRange;
+    private long _insightRefreshGeneration;
+    private string _activeInsightRefreshKey = string.Empty;
 
     private bool _isPaletteOpen;
     private string _paletteQuery = string.Empty;
@@ -61,23 +73,40 @@ public partial class Home : ComponentBase, IAsyncDisposable
 
     private bool _isVoiceRecording;
     private bool _isVoiceSupported = true;
+    private string? _activeVoiceSessionId;
+    private string? _activeVoiceSessionNoteId;
     private DotNetObjectReference<Home>? _dotNetRef;
 
     private CancellationTokenSource? _streamCts;
     private CancellationTokenSource? _debounceCts;
+    private CancellationTokenSource? _voiceAuditPersistCts;
 
     private IEnumerable<NoteDocument> FilteredNotes =>
         _notes.Where(note =>
             string.IsNullOrWhiteSpace(_searchText) ||
-            note.Title.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ||
-            note.Content.Contains(_searchText, StringComparison.OrdinalIgnoreCase));
+            (note.Title?.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ?? false) ||
+            (note.Content?.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ?? false));
 
     private NoteDocument? ActiveNote => _notes.FirstOrDefault(note => note.Id == _activeNoteId);
     private string ActiveWord => _activeWord;
-    private int ActiveLayerCount => ActiveNote?.Layers.Count ?? 0;
+    private int ActiveLayerCount => ActiveNote?.Layers?.Count ?? 0;
 
     private List<PaletteCommand> PaletteResults => GetPaletteResults();
     private IReadOnlyList<PreviewThemeOption> AvailablePreviewThemes => PreviewThemes;
+    private bool IsVoiceProcessing => _voiceProcessingCount > 0;
+    private bool ShowEditorActivity => _isBusy || _isApplyingSlash;
+    private bool ShowWorkspaceSkeleton => _isInitializing;
+    private bool ShowInsightsSkeleton => _isInitializing || _isRefreshingInsights;
+    private string? WorkingLabel =>
+        _isInitializing ? "Loading workspace..." :
+        _isBusy ? "Generating continuation..." :
+        _isApplyingSlash ? "Applying slash command..." :
+        IsVoiceProcessing ? "Refining transcript..." :
+        _isRefreshingInsights ? "Refreshing insights..." :
+        null;
+    private string CurrentPluginInsightSignature => string.Join('|', _pluginPanels
+        .OrderBy(panel => panel.Id, StringComparer.OrdinalIgnoreCase)
+        .Select(panel => $"{panel.Id}:{panel.Mode}:{panel.Prompt}"));
 
     private List<PanelView> AllPanels =>
     [
@@ -85,6 +114,7 @@ public partial class Home : ComponentBase, IAsyncDisposable
         new PanelView("Help", "Editing and markdown command assist.", _help),
         new PanelView("Brainstorm", "Prompted ideas while you write.", _brainstorm),
         new PanelView("History QC", "Version, diff, and tone checkpoints.", BuildHistoryPanelItems()),
+        new PanelView("Voice Review", "Recording and transcription audit trail.", BuildVoiceReviewPanelItems()),
         .. _pluginPanels.Select(panel => new PanelView(panel.Title, panel.Description, GetPluginPanelItems(panel.Id)))
     ];
 
@@ -95,10 +125,37 @@ public partial class Home : ComponentBase, IAsyncDisposable
             return;
         }
 
-        await LoadOrInitializeAsync();
-        await LoadPluginManifestAsync();
-        await DetectVoiceSupportAsync();
-        await RefreshAssistantPanelsAsync();
+        try
+        {
+            await LoadOrInitializeAsync();
+            await LoadPluginManifestAsync();
+            await DetectVoiceSupportAsync();
+            _ = StartInitialInsightsRefreshAsync();
+        }
+        catch
+        {
+            _statusMessage = "Workspace loaded with fallback defaults";
+        }
+        finally
+        {
+            _isInitializing = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task StartInitialInsightsRefreshAsync()
+    {
+        try
+        {
+            await RefreshAssistantPanelsAsync();
+        }
+        catch
+        {
+            _isRefreshingInsights = false;
+            _activeInsightRefreshKey = string.Empty;
+            _statusMessage = "Workspace ready; insights unavailable";
+            await InvokeAsync(StateHasChanged);
+        }
     }
 
     private async Task DetectVoiceSupportAsync()
@@ -131,17 +188,18 @@ public partial class Home : ComponentBase, IAsyncDisposable
             try
             {
                 var state = JsonSerializer.Deserialize<StudioState>(serializedState, JsonOptions);
-                if (state?.Notes is { Count: > 0 })
+                var normalizedNotes = NormalizeLoadedNotes(state?.Notes);
+                if (normalizedNotes.Count > 0)
                 {
                     _notes.Clear();
-                    _notes.AddRange(state.Notes);
+                    _notes.AddRange(normalizedNotes);
                     EnsureLayerHistory();
-                    _activeNoteId = state.ActiveNoteId ?? _notes[0].Id;
+                    _activeNoteId = state?.ActiveNoteId ?? _notes[0].Id;
                     if (_notes.All(note => note.Id != _activeNoteId))
                     {
                         _activeNoteId = _notes[0].Id;
                     }
-                    _previewTheme = NormalizePreviewTheme(state.PreviewTheme);
+                    _previewTheme = NormalizePreviewTheme(state?.PreviewTheme);
                     UpdateEditorSignals();
                     StateHasChanged();
                     return;
@@ -178,6 +236,7 @@ public partial class Home : ComponentBase, IAsyncDisposable
         _pluginSlashCommands.Clear();
         _pluginPanels.Clear();
         _pluginPanelItems.Clear();
+        _insightCache.Clear();
 
         if (string.IsNullOrWhiteSpace(manifestText))
         {
@@ -241,9 +300,14 @@ public partial class Home : ComponentBase, IAsyncDisposable
 
     private void SelectNote(string noteId)
     {
+        CancelPendingInsightWork();
+        ClearVoiceInterimTracking();
         _activeNoteId = noteId;
         UpdateEditorSignals();
-        QueueAssistantRefresh();
+        if (!TryApplyCachedInsightsForActiveNote())
+        {
+            QueueAssistantRefresh();
+        }
     }
 
     private async Task CreateNoteAsync()
@@ -287,7 +351,33 @@ public partial class Home : ComponentBase, IAsyncDisposable
             annotation: "Title updated");
 
         await PersistStateAsync();
-        QueueAssistantRefresh();
+    }
+
+    private void CancelPendingInsightWork()
+    {
+        _debounceCts?.Cancel();
+        _debounceCts?.Dispose();
+        _debounceCts = null;
+
+        _streamCts?.Cancel();
+        _streamCts?.Dispose();
+        _streamCts = null;
+
+        _isRefreshingInsights = false;
+        _activeInsightRefreshKey = string.Empty;
+    }
+
+    private void ClearVoiceInterimTracking(string? noteId = null)
+    {
+        if (_voiceInterimRange is null)
+        {
+            return;
+        }
+
+        if (noteId is null || string.Equals(_voiceInterimRange.NoteId, noteId, StringComparison.Ordinal))
+        {
+            _voiceInterimRange = null;
+        }
     }
 
     private async Task HandleDraftInput(ChangeEventArgs args)
@@ -297,6 +387,7 @@ public partial class Home : ComponentBase, IAsyncDisposable
             return;
         }
 
+        ClearVoiceInterimTracking(ActiveNote.Id);
         var before = ActiveNote.Content;
         ActiveNote.Content = args.Value?.ToString() ?? string.Empty;
         ActiveNote.UpdatedAt = DateTimeOffset.UtcNow;
@@ -471,7 +562,7 @@ public partial class Home : ComponentBase, IAsyncDisposable
 
     private async Task ContinueWithAiAsync()
     {
-        if (ActiveNote is null)
+        if (ActiveNote is null || _isBusy || _isApplyingSlash)
         {
             return;
         }
@@ -479,6 +570,7 @@ public partial class Home : ComponentBase, IAsyncDisposable
         _isBusy = true;
         _statusMessage = "Generating continuation...";
         var before = ActiveNote.Content;
+        StateHasChanged();
 
         try
         {
@@ -512,6 +604,7 @@ public partial class Home : ComponentBase, IAsyncDisposable
         finally
         {
             _isBusy = false;
+            StateHasChanged();
         }
     }
 
@@ -529,6 +622,7 @@ public partial class Home : ComponentBase, IAsyncDisposable
     private async Task StartVoiceCaptureAsync()
     {
         _dotNetRef ??= DotNetObjectReference.Create(this);
+        ClearVoiceInterimTracking();
 
         DictationStartResult? result;
         try
@@ -546,6 +640,10 @@ public partial class Home : ComponentBase, IAsyncDisposable
         {
             _isVoiceRecording = true;
             _statusMessage = "Voice capture active";
+            if (ActiveNote is not null)
+            {
+                StartVoiceSessionAudit(ActiveNote, "browser-speech", "capture-recording");
+            }
             StateHasChanged();
             return;
         }
@@ -572,8 +670,10 @@ public partial class Home : ComponentBase, IAsyncDisposable
             // Ignore stop failures.
         }
 
+        ClearVoiceInterimTracking();
         _isVoiceRecording = false;
         _statusMessage = statusMessage;
+        CompleteActiveVoiceSession("stopped", "browser-speech", statusMessage);
         StateHasChanged();
     }
 
@@ -584,12 +684,19 @@ public partial class Home : ComponentBase, IAsyncDisposable
         {
             if (string.Equals(status, "recording", StringComparison.OrdinalIgnoreCase))
             {
+                ClearVoiceInterimTracking();
                 _isVoiceRecording = true;
                 _statusMessage = "Voice capture active";
+                if (ActiveNote is not null)
+                {
+                    StartVoiceSessionAudit(ActiveNote, "browser-speech", "capture-recording");
+                }
             }
             else if (string.Equals(status, "stopped", StringComparison.OrdinalIgnoreCase))
             {
+                ClearVoiceInterimTracking();
                 _isVoiceRecording = false;
+                CompleteActiveVoiceSession("stopped", "browser-speech", "capture-stopped");
                 if (!string.Equals(_statusMessage, "Voice transcript cleaned", StringComparison.OrdinalIgnoreCase) &&
                     !string.Equals(_statusMessage, "Voice transcript inserted", StringComparison.OrdinalIgnoreCase))
                 {
@@ -598,8 +705,10 @@ public partial class Home : ComponentBase, IAsyncDisposable
             }
             else if (status.StartsWith("error:", StringComparison.OrdinalIgnoreCase))
             {
+                ClearVoiceInterimTracking();
                 _isVoiceRecording = false;
                 _statusMessage = "Voice capture error";
+                CompleteActiveVoiceSession("error", "browser-speech", status);
             }
 
             StateHasChanged();
@@ -607,9 +716,39 @@ public partial class Home : ComponentBase, IAsyncDisposable
     }
 
     [JSInvokable]
-    public async Task OnVoiceTranscriptFinalized(string transcript)
+    public async Task OnVoiceTranscriptInterim(string transcript)
     {
         if (string.IsNullOrWhiteSpace(transcript))
+        {
+            return;
+        }
+
+        var normalizedTranscript = transcript.Trim();
+        await InvokeAsync(async () =>
+        {
+            if (ActiveNote is null)
+            {
+                return;
+            }
+
+            await _voicePipelineLock.WaitAsync();
+            try
+            {
+                AppendVoiceAuditEvent(ActiveNote, "transcript-interim", normalizedTranscript, "browser-speech", detail: "interim", dedupeWithPrevious: true);
+                await ApplyVoiceInterimTranscriptAsync(ActiveNote, normalizedTranscript);
+            }
+            finally
+            {
+                _voicePipelineLock.Release();
+            }
+        });
+    }
+
+    [JSInvokable]
+    public async Task OnVoiceTranscriptFinalized(string transcript)
+    {
+        var normalizedTranscript = transcript?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(normalizedTranscript))
         {
             return;
         }
@@ -621,61 +760,73 @@ public partial class Home : ComponentBase, IAsyncDisposable
                 return;
             }
 
+            VoiceCleanupRequest? cleanupRequest;
             await _voicePipelineLock.WaitAsync();
             try
             {
-                await InsertTranscriptAtCursorAsync(ActiveNote, transcript);
+                AppendVoiceAuditEvent(ActiveNote, "transcript-finalized", normalizedTranscript, "browser-speech", detail: "finalized");
+                cleanupRequest = await CommitFinalVoiceTranscriptAsync(ActiveNote, normalizedTranscript);
             }
             finally
             {
                 _voicePipelineLock.Release();
             }
+
+            if (cleanupRequest is not null)
+            {
+                QueueVoiceCleanup(cleanupRequest);
+            }
         });
     }
 
-    private async Task InsertTranscriptAtCursorAsync(NoteDocument note, string transcript)
+    private async Task ApplyVoiceInterimTranscriptAsync(NoteDocument note, string transcript)
     {
-        var normalizedTranscript = transcript.Trim();
-        if (string.IsNullOrWhiteSpace(normalizedTranscript))
+        if (string.IsNullOrWhiteSpace(transcript))
         {
             return;
         }
 
+        var insertion = await InsertVoiceTextAtCursorAsync(note, transcript);
+        if (insertion is null || string.IsNullOrWhiteSpace(insertion.Value))
+        {
+            return;
+        }
+
+        note.Content = insertion.Value;
+        note.UpdatedAt = DateTimeOffset.UtcNow;
+        _voiceInterimRange = new VoiceInterimRange(note.Id, insertion.Start, insertion.End);
+        _statusMessage = "Transcribing live...";
+        UpdateEditorSignals();
+        StateHasChanged();
+    }
+
+    private async Task<VoiceCleanupRequest?> CommitFinalVoiceTranscriptAsync(NoteDocument note, string transcript)
+    {
+        if (string.IsNullOrWhiteSpace(transcript))
+        {
+            return null;
+        }
+
         var before = note.Content;
-        EditorInsertionResult? insertion = null;
-        var cleanupRangeStart = -1;
-        var cleanupRangeEnd = -1;
-        var cleanupSegment = string.Empty;
+        var insertion = await InsertVoiceTextAtCursorAsync(note, transcript);
+        ClearVoiceInterimTracking(note.Id);
 
-        try
+        if (insertion is null || string.IsNullOrWhiteSpace(insertion.Value))
         {
-            insertion = await JS.InvokeAsync<EditorInsertionResult>(
-                "JDWriterStudio.insertTextAtCursor",
-                _editorInput,
-                normalizedTranscript);
-        }
-        catch
-        {
-            // Fallback to append if direct cursor insertion fails.
+            return null;
         }
 
-        if (insertion is not null && !string.IsNullOrWhiteSpace(insertion.Value))
-        {
-            note.Content = insertion.Value;
-            cleanupRangeStart = insertion.Start;
-            cleanupRangeEnd = insertion.End;
-            cleanupSegment = SafeSlice(note.Content, cleanupRangeStart, cleanupRangeEnd);
-        }
-        else
-        {
-            note.Content = AppendToDraft(note.Content, normalizedTranscript);
-            cleanupRangeEnd = note.Content.Length;
-            cleanupRangeStart = Math.Max(0, note.Content.LastIndexOf(normalizedTranscript, StringComparison.Ordinal));
-            cleanupSegment = SafeSlice(note.Content, cleanupRangeStart, cleanupRangeEnd);
-        }
-
+        note.Content = insertion.Value;
         note.UpdatedAt = DateTimeOffset.UtcNow;
         _statusMessage = "Voice transcript inserted";
+        AppendVoiceAuditEvent(
+            note,
+            "transcript-inserted",
+            transcript,
+            "browser-speech",
+            rangeStart: insertion.Start,
+            rangeEnd: insertion.End,
+            detail: "inserted-at-cursor");
 
         RecordLayer(
             note,
@@ -685,15 +836,24 @@ public partial class Home : ComponentBase, IAsyncDisposable
             contentAfter: note.Content,
             titleBefore: note.Title,
             titleAfter: note.Title,
-            annotation: normalizedTranscript);
+            annotation: transcript);
 
         UpdateEditorSignals();
         await PersistStateAsync();
         QueueAssistantRefresh();
         StateHasChanged();
 
-        if (cleanupRangeStart < 0 || cleanupRangeEnd <= cleanupRangeStart || string.IsNullOrWhiteSpace(cleanupSegment))
+        var cleanupSegment = SafeSlice(note.Content, insertion.Start, insertion.End);
+        if (insertion.Start < 0 || insertion.End <= insertion.Start || string.IsNullOrWhiteSpace(cleanupSegment))
         {
+            AppendVoiceAuditEvent(
+                note,
+                "cleanup-skipped",
+                cleanupSegment,
+                "fallback",
+                rangeStart: insertion.Start,
+                rangeEnd: insertion.End,
+                detail: "invalid-insertion-range");
             RecordLayer(
                 note,
                 operation: "voice-cleanup-attempt",
@@ -704,10 +864,108 @@ public partial class Home : ComponentBase, IAsyncDisposable
                 titleAfter: note.Title,
                 annotation: "Cleanup skipped; insertion range unavailable");
             await PersistStateAsync();
-            return;
+            return null;
         }
 
-        await ApplyAiVoiceCleanupAsync(note, cleanupRangeStart, cleanupRangeEnd, cleanupSegment, normalizedTranscript);
+        return new VoiceCleanupRequest(note, insertion.Start, insertion.End, cleanupSegment, transcript);
+    }
+
+    private async Task<EditorInsertionResult?> InsertVoiceTextAtCursorAsync(NoteDocument note, string transcript)
+    {
+        if (string.IsNullOrWhiteSpace(transcript))
+        {
+            return null;
+        }
+
+        EditorInsertionResult? insertion = null;
+        var options = new { dispatchInput = false };
+        var activeRange = _voiceInterimRange is not null &&
+            string.Equals(_voiceInterimRange.NoteId, note.Id, StringComparison.Ordinal)
+            ? _voiceInterimRange
+            : null;
+
+        try
+        {
+            insertion = activeRange is null
+                ? await JS.InvokeAsync<EditorInsertionResult>(
+                    "JDWriterStudio.insertTextAtCursor",
+                    _editorInput,
+                    transcript,
+                    options)
+                : await JS.InvokeAsync<EditorInsertionResult>(
+                    "JDWriterStudio.replaceTextRange",
+                    _editorInput,
+                    activeRange.Start,
+                    activeRange.End,
+                    transcript,
+                    options);
+        }
+        catch
+        {
+            // Fallback paths are handled below.
+        }
+
+        if (insertion is not null && !string.IsNullOrWhiteSpace(insertion.Value))
+        {
+            return insertion;
+        }
+
+        if (activeRange is not null)
+        {
+            var replaced = ReplaceRange(note.Content, activeRange.Start, activeRange.End, transcript);
+            var fallbackStart = Math.Clamp(activeRange.Start, 0, replaced.Length);
+            var fallbackEnd = Math.Clamp(fallbackStart + transcript.Length, fallbackStart, replaced.Length);
+            return new EditorInsertionResult
+            {
+                Value = replaced,
+                Start = fallbackStart,
+                End = fallbackEnd
+            };
+        }
+
+        var appended = AppendToDraft(note.Content, transcript);
+        var appendedEnd = appended.Length;
+        var appendedStart = Math.Max(0, appended.LastIndexOf(transcript, StringComparison.Ordinal));
+        return new EditorInsertionResult
+        {
+            Value = appended,
+            Start = appendedStart,
+            End = appendedEnd
+        };
+    }
+
+    private void QueueVoiceCleanup(VoiceCleanupRequest request)
+    {
+        _ = InvokeAsync(async () =>
+        {
+            AppendVoiceAuditEvent(
+                request.Note,
+                "cleanup-queued",
+                request.InsertedSegment,
+                "ai",
+                rangeStart: request.Start,
+                rangeEnd: request.End,
+                detail: "awaiting-ai-cleanup");
+            _voiceProcessingCount++;
+            _statusMessage = "Refining voice transcript...";
+            StateHasChanged();
+
+            try
+            {
+                await ApplyAiVoiceCleanupAsync(request.Note, request.Start, request.End, request.InsertedSegment, request.RawTranscript);
+            }
+            finally
+            {
+                _voiceProcessingCount = Math.Max(0, _voiceProcessingCount - 1);
+                if (_voiceProcessingCount == 0 &&
+                    string.Equals(_statusMessage, "Refining voice transcript...", StringComparison.OrdinalIgnoreCase))
+                {
+                    _statusMessage = "Voice transcript inserted";
+                }
+
+                StateHasChanged();
+            }
+        });
     }
 
     private async Task ApplyAiVoiceCleanupAsync(NoteDocument note, int rangeStart, int rangeEnd, string insertedSegment, string rawTranscript)
@@ -723,6 +981,14 @@ public partial class Home : ComponentBase, IAsyncDisposable
             var cleanupNoOp = string.IsNullOrWhiteSpace(cleaned) || string.Equals(cleaned, insertedSegment, StringComparison.Ordinal);
             if (cleanupNoOp)
             {
+                AppendVoiceAuditEvent(
+                    note,
+                    "cleanup-noop",
+                    cleaned ?? string.Empty,
+                    response.Source,
+                    rangeStart: rangeStart,
+                    rangeEnd: rangeEnd,
+                    detail: "cleanup-no-material-change");
                 RecordLayer(
                     note,
                     operation: "voice-cleanup-attempt",
@@ -744,6 +1010,14 @@ public partial class Home : ComponentBase, IAsyncDisposable
             if (!RangeMatches(note.Content, rangeStart, rangeEnd, insertedSegment))
             {
                 _statusMessage = "Voice transcript captured; cleanup skipped due to concurrent edits";
+                AppendVoiceAuditEvent(
+                    note,
+                    "cleanup-skipped",
+                    insertedSegment,
+                    response.Source,
+                    rangeStart: rangeStart,
+                    rangeEnd: rangeEnd,
+                    detail: "concurrent-edits-detected");
                 return;
             }
 
@@ -752,6 +1026,14 @@ public partial class Home : ComponentBase, IAsyncDisposable
             note.UpdatedAt = DateTimeOffset.UtcNow;
             _statusMessage = "Voice transcript cleaned";
             _lastAiSource = response.Source;
+            AppendVoiceAuditEvent(
+                note,
+                "cleanup-applied",
+                cleaned,
+                response.Source,
+                rangeStart: rangeStart,
+                rangeEnd: Math.Clamp(rangeStart + cleaned!.Length, rangeStart, note.Content.Length),
+                detail: "ai-cleanup-applied");
 
             RecordLayer(
                 note,
@@ -770,6 +1052,14 @@ public partial class Home : ComponentBase, IAsyncDisposable
         }
         catch
         {
+            AppendVoiceAuditEvent(
+                note,
+                "cleanup-failed",
+                insertedSegment,
+                "fallback",
+                rangeStart: rangeStart,
+                rangeEnd: rangeEnd,
+                detail: "cleanup-exception");
             RecordLayer(
                 note,
                 operation: "voice-cleanup-attempt",
@@ -812,51 +1102,68 @@ public partial class Home : ComponentBase, IAsyncDisposable
 
     private async Task ApplySlashCommandAsync(SlashCommandDefinition command)
     {
-        if (ActiveNote is null)
+        if (ActiveNote is null || _isApplyingSlash)
         {
             return;
         }
 
-        var before = ActiveNote.Content;
-        RemoveTrailingSlashContext(ActiveNote);
+        _isApplyingSlash = true;
+        _statusMessage = $"Applying /{command.Name}...";
+        StateHasChanged();
 
-        string output;
-        string source;
-        if (string.Equals(command.Kind, "template", StringComparison.OrdinalIgnoreCase))
+        try
         {
-            output = command.Template ?? string.Empty;
-            source = "plugin-template";
+            var before = ActiveNote.Content;
+            RemoveTrailingSlashContext(ActiveNote);
+
+            string output;
+            string source;
+            if (string.Equals(command.Kind, "template", StringComparison.OrdinalIgnoreCase))
+            {
+                output = command.Template ?? string.Empty;
+                source = "plugin-template";
+            }
+            else
+            {
+                var response = await AiAssistant.RunSlashCommandAsync(new SlashCommandRequest(command.Name, TrimForPrompt(ActiveNote.Content), command.Prompt));
+                output = response.Output;
+                _lastAiSource = response.Source;
+                source = response.Source;
+            }
+
+            if (string.IsNullOrWhiteSpace(output))
+            {
+                _statusMessage = $"Slash /{command.Name} returned no output";
+                return;
+            }
+
+            ActiveNote.Content = AppendToDraft(ActiveNote.Content, output.Trim());
+            ActiveNote.UpdatedAt = DateTimeOffset.UtcNow;
+            _statusMessage = $"Slash /{command.Name} applied";
+
+            RecordLayer(
+                ActiveNote,
+                operation: "slash-command",
+                source: source,
+                contentBefore: before,
+                contentAfter: ActiveNote.Content,
+                titleBefore: ActiveNote.Title,
+                titleAfter: ActiveNote.Title,
+                annotation: $"/{command.Name}");
+
+            UpdateEditorSignals();
+            await PersistStateAsync();
+            QueueAssistantRefresh();
         }
-        else
+        catch
         {
-            var response = await AiAssistant.RunSlashCommandAsync(new SlashCommandRequest(command.Name, TrimForPrompt(ActiveNote.Content), command.Prompt));
-            output = response.Output;
-            _lastAiSource = response.Source;
-            source = response.Source;
+            _statusMessage = $"Slash /{command.Name} unavailable";
         }
-
-        if (string.IsNullOrWhiteSpace(output))
+        finally
         {
-            return;
+            _isApplyingSlash = false;
+            StateHasChanged();
         }
-
-        ActiveNote.Content = AppendToDraft(ActiveNote.Content, output.Trim());
-        ActiveNote.UpdatedAt = DateTimeOffset.UtcNow;
-        _statusMessage = $"Slash /{command.Name} applied";
-
-        RecordLayer(
-            ActiveNote,
-            operation: "slash-command",
-            source: source,
-            contentBefore: before,
-            contentAfter: ActiveNote.Content,
-            titleBefore: ActiveNote.Title,
-            titleAfter: ActiveNote.Title,
-            annotation: $"/{command.Name}");
-
-        UpdateEditorSignals();
-        await PersistStateAsync();
-        QueueAssistantRefresh();
     }
 
     private async Task DownloadActiveNoteAsync()
@@ -883,7 +1190,7 @@ public partial class Home : ComponentBase, IAsyncDisposable
         try
         {
             await Task.Delay(TimeSpan.FromMilliseconds(950), cancellationToken);
-            await RefreshAssistantPanelsAsync();
+            await RefreshAssistantPanelsAsync(force: false);
         }
         catch (OperationCanceledException)
         {
@@ -891,12 +1198,35 @@ public partial class Home : ComponentBase, IAsyncDisposable
         }
     }
 
-    private async Task RefreshAssistantPanelsAsync()
+    private async Task RefreshAssistantPanelsAsync(bool force = true)
     {
         if (ActiveNote is null)
         {
             return;
         }
+
+        var noteId = ActiveNote.Id;
+        var contentSignature = BuildInsightContentSignature(ActiveNote.Content);
+        var refreshKey = $"{noteId}:{contentSignature}:{CurrentPluginInsightSignature}";
+
+        if (!force && TryApplyCachedInsights(noteId, contentSignature))
+        {
+            _isRefreshingInsights = false;
+            _statusMessage = "Insights restored from cache";
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        if (_isRefreshingInsights &&
+            string.Equals(_activeInsightRefreshKey, refreshKey, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        var refreshGeneration = Interlocked.Increment(ref _insightRefreshGeneration);
+        _isRefreshingInsights = true;
+        _activeInsightRefreshKey = refreshKey;
+        await InvokeAsync(StateHasChanged);
 
         _streamCts?.Cancel();
         _streamCts?.Dispose();
@@ -927,11 +1257,24 @@ public partial class Home : ComponentBase, IAsyncDisposable
         try
         {
             await Task.WhenAll(tasks);
-            _statusMessage = "Insights updated";
+            if (!token.IsCancellationRequested)
+            {
+                CacheInsights(noteId, contentSignature);
+                _statusMessage = "Insights updated";
+            }
         }
         catch (OperationCanceledException)
         {
             // Ignore canceled refresh.
+        }
+        finally
+        {
+            if (refreshGeneration == _insightRefreshGeneration)
+            {
+                _isRefreshingInsights = false;
+                _activeInsightRefreshKey = string.Empty;
+                await InvokeAsync(StateHasChanged);
+            }
         }
     }
 
@@ -1087,6 +1430,82 @@ public partial class Home : ComponentBase, IAsyncDisposable
 
     private IEnumerable<SlashCommandDefinition> AllSlashCommands() => _builtInSlashCommands.Concat(_pluginSlashCommands);
 
+    private bool TryApplyCachedInsightsForActiveNote()
+    {
+        if (ActiveNote is null)
+        {
+            return false;
+        }
+
+        var contentSignature = BuildInsightContentSignature(ActiveNote.Content);
+        return TryApplyCachedInsights(ActiveNote.Id, contentSignature);
+    }
+
+    private bool TryApplyCachedInsights(string noteId, string contentSignature)
+    {
+        if (!_insightCache.TryGetValue(noteId, out var cached))
+        {
+            return false;
+        }
+
+        if (!string.Equals(cached.ContentSignature, contentSignature, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (!string.Equals(cached.PluginSignature, CurrentPluginInsightSignature, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        _hints.Clear();
+        _hints.AddRange(cached.Hints);
+
+        _help.Clear();
+        _help.AddRange(cached.Help);
+
+        _brainstorm.Clear();
+        _brainstorm.AddRange(cached.Brainstorm);
+
+        foreach (var panel in _pluginPanels)
+        {
+            var target = GetPluginPanelItems(panel.Id);
+            target.Clear();
+            if (cached.PluginPanels.TryGetValue(panel.Id, out var panelItems))
+            {
+                target.AddRange(panelItems);
+            }
+        }
+
+        return true;
+    }
+
+    private void CacheInsights(string noteId, string contentSignature)
+    {
+        var pluginPanels = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var panel in _pluginPanels)
+        {
+            pluginPanels[panel.Id] = [.. GetPluginPanelItems(panel.Id)];
+        }
+
+        _insightCache[noteId] = new InsightCacheEntry
+        {
+            ContentSignature = contentSignature,
+            PluginSignature = CurrentPluginInsightSignature,
+            Hints = [.. _hints],
+            Help = [.. _help],
+            Brainstorm = [.. _brainstorm],
+            PluginPanels = pluginPanels
+        };
+    }
+
+    private static string BuildInsightContentSignature(string content)
+    {
+        var normalized = content ?? string.Empty;
+        var bytes = SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(normalized));
+        return Convert.ToHexString(bytes);
+    }
+
     private List<string> GetPluginPanelItems(string panelId)
     {
         if (!_pluginPanelItems.TryGetValue(panelId, out var values))
@@ -1105,12 +1524,15 @@ public partial class Home : ComponentBase, IAsyncDisposable
             return ["No active note selected."];
         }
 
-        if (ActiveNote.Layers.Count == 0)
+        var layers = (ActiveNote.Layers ?? [])
+            .Where(layer => layer is not null)
+            .ToList();
+        if (layers.Count == 0)
         {
             return ["No history layers captured yet."];
         }
 
-        var recent = ActiveNote.Layers
+        var recent = layers
             .OrderByDescending(layer => layer.UpdatedAt)
             .Take(8)
             .Select(layer =>
@@ -1123,10 +1545,10 @@ public partial class Home : ComponentBase, IAsyncDisposable
             })
             .ToList();
 
-        if (ActiveNote.Layers.Count >= 2)
+        if (layers.Count >= 2)
         {
-            var newest = ActiveNote.Layers[^1].Tone?.Sentiment ?? 0;
-            var previous = ActiveNote.Layers[^2].Tone?.Sentiment ?? 0;
+            var newest = layers[^1].Tone?.Sentiment ?? 0;
+            var previous = layers[^2].Tone?.Sentiment ?? 0;
             var drift = Math.Abs(newest - previous);
             recent.Insert(0, $"Tone drift vs previous layer: {drift:0.00}");
         }
@@ -1134,10 +1556,264 @@ public partial class Home : ComponentBase, IAsyncDisposable
         return recent;
     }
 
+    private List<string> BuildVoiceReviewPanelItems()
+    {
+        if (ActiveNote is null)
+        {
+            return ["No active note selected."];
+        }
+
+        var sessions = (ActiveNote.VoiceSessions ?? [])
+            .Where(session => session is not null)
+            .OrderByDescending(session => session.StartedAt)
+            .Take(8)
+            .ToList();
+
+        if (sessions.Count == 0)
+        {
+            return ["No voice sessions captured yet."];
+        }
+
+        var items = new List<string>();
+        foreach (var session in sessions)
+        {
+            var status = string.IsNullOrWhiteSpace(session.Status) ? "unknown" : session.Status;
+            var sessionEventCount = session.Events?.Count ?? 0;
+            var duration = session.EndedAt is null
+                ? "live"
+                : $"{Math.Max(0, (session.EndedAt.Value - session.StartedAt).TotalSeconds):0.0}s";
+
+            items.Add($"{session.StartedAt.ToLocalTime():MMM d h:mm:ss tt} | {status} | {sessionEventCount} events | {duration}");
+
+            var recentEvents = (session.Events ?? [])
+                .Where(evt => evt is not null)
+                .OrderByDescending(evt => evt.At)
+                .Take(4)
+                .ToList();
+
+            foreach (var evt in recentEvents)
+            {
+                var text = string.IsNullOrWhiteSpace(evt.Text)
+                    ? string.Empty
+                    : $" | \"{ToPanelSnippet(evt.Text, 92)}\"";
+                var detail = string.IsNullOrWhiteSpace(evt.Detail)
+                    ? string.Empty
+                    : $" ({evt.Detail})";
+                items.Add($"- {evt.At.ToLocalTime():h:mm:ss tt} | {evt.Kind}{detail}{text}");
+            }
+
+            if (sessionEventCount > recentEvents.Count)
+            {
+                items.Add($"- ... {sessionEventCount - recentEvents.Count} earlier events");
+            }
+        }
+
+        return items;
+    }
+
+    private void StartVoiceSessionAudit(NoteDocument note, string source, string detail)
+    {
+        var session = EnsureActiveVoiceSession(note, source);
+        if (session is null)
+        {
+            return;
+        }
+
+        session.Status = "recording";
+        session.EndedAt = null;
+        AppendVoiceAuditEvent(note, "capture-status", "recording", source, detail: detail, dedupeWithPrevious: true);
+    }
+
+    private void CompleteActiveVoiceSession(string status, string source, string? detail)
+    {
+        var note = ResolveVoiceSessionNote();
+        if (note is null)
+        {
+            _activeVoiceSessionId = null;
+            _activeVoiceSessionNoteId = null;
+            return;
+        }
+
+        var session = TryGetActiveVoiceSession(note);
+        if (session is null)
+        {
+            _activeVoiceSessionId = null;
+            _activeVoiceSessionNoteId = null;
+            return;
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        session.Status = NormalizeVoiceSessionStatus(status);
+        session.EndedAt = now;
+        AppendVoiceAuditEvent(note, "capture-status", session.Status, source, detail: detail, dedupeWithPrevious: true);
+        QueueVoiceAuditPersist();
+        _activeVoiceSessionId = null;
+        _activeVoiceSessionNoteId = null;
+    }
+
+    private NoteDocument? ResolveVoiceSessionNote()
+    {
+        if (!string.IsNullOrWhiteSpace(_activeVoiceSessionNoteId))
+        {
+            return _notes.FirstOrDefault(note => string.Equals(note.Id, _activeVoiceSessionNoteId, StringComparison.Ordinal));
+        }
+
+        return ActiveNote;
+    }
+
+    private VoiceSessionAudit? TryGetActiveVoiceSession(NoteDocument note)
+    {
+        if (string.IsNullOrWhiteSpace(_activeVoiceSessionId))
+        {
+            return null;
+        }
+
+        EnsureVoiceAuditHistory(note);
+        return note.VoiceSessions.FirstOrDefault(session => string.Equals(session.SessionId, _activeVoiceSessionId, StringComparison.Ordinal));
+    }
+
+    private VoiceSessionAudit? EnsureActiveVoiceSession(NoteDocument note, string source)
+    {
+        EnsureVoiceAuditHistory(note);
+
+        if (!string.IsNullOrWhiteSpace(_activeVoiceSessionNoteId) &&
+            !string.Equals(_activeVoiceSessionNoteId, note.Id, StringComparison.Ordinal))
+        {
+            _activeVoiceSessionId = null;
+        }
+
+        _activeVoiceSessionNoteId = note.Id;
+
+        var existing = TryGetActiveVoiceSession(note);
+        if (existing is not null)
+        {
+            return existing;
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        var session = new VoiceSessionAudit
+        {
+            SessionId = Guid.NewGuid().ToString("N"),
+            StartedAt = now,
+            EndedAt = null,
+            Status = "recording",
+            Source = string.IsNullOrWhiteSpace(source) ? "browser-speech" : source.Trim()
+        };
+
+        note.VoiceSessions.Add(session);
+        TrimVoiceSessionHistory(note.VoiceSessions);
+        _activeVoiceSessionId = session.SessionId;
+        QueueVoiceAuditPersist();
+        return session;
+    }
+
+    private void AppendVoiceAuditEvent(
+        NoteDocument note,
+        string kind,
+        string? text,
+        string source,
+        int? rangeStart = null,
+        int? rangeEnd = null,
+        string? detail = null,
+        bool dedupeWithPrevious = false)
+    {
+        var session = EnsureActiveVoiceSession(note, source);
+        if (session is null)
+        {
+            return;
+        }
+
+        var normalizedKind = string.IsNullOrWhiteSpace(kind) ? "event" : kind.Trim();
+        var normalizedText = NormalizeVoiceEventText(text);
+        var normalizedSource = string.IsNullOrWhiteSpace(source) ? "browser-speech" : source.Trim();
+        var normalizedDetail = string.IsNullOrWhiteSpace(detail) ? null : detail.Trim();
+
+        if (dedupeWithPrevious && session.Events.Count > 0)
+        {
+            var previous = session.Events[^1];
+            if (string.Equals(previous.Kind, normalizedKind, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(previous.Text, normalizedText, StringComparison.Ordinal) &&
+                string.Equals(previous.Source, normalizedSource, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(previous.Detail, normalizedDetail, StringComparison.Ordinal) &&
+                previous.RangeStart == rangeStart &&
+                previous.RangeEnd == rangeEnd)
+            {
+                previous.At = DateTimeOffset.UtcNow;
+                QueueVoiceAuditPersist();
+                return;
+            }
+        }
+
+        session.Events.Add(new VoiceAuditEvent
+        {
+            At = DateTimeOffset.UtcNow,
+            Kind = normalizedKind,
+            Text = normalizedText,
+            Source = normalizedSource,
+            Detail = normalizedDetail,
+            RangeStart = rangeStart,
+            RangeEnd = rangeEnd
+        });
+
+        session.Events = session.Events
+            .OrderBy(evt => evt.At)
+            .TakeLast(MaxVoiceEventsPerSession)
+            .ToList();
+        QueueVoiceAuditPersist();
+    }
+
+    private void QueueVoiceAuditPersist()
+    {
+        _voiceAuditPersistCts?.Cancel();
+        _voiceAuditPersistCts?.Dispose();
+        _voiceAuditPersistCts = new CancellationTokenSource();
+
+        var token = _voiceAuditPersistCts.Token;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(180, token);
+                if (token.IsCancellationRequested)
+                {
+                    return;
+                }
+
+                await InvokeAsync(async () =>
+                {
+                    try
+                    {
+                        await PersistStateAsync();
+                    }
+                    catch
+                    {
+                        // Ignore transient persistence failures during high-frequency voice updates.
+                    }
+                });
+            }
+            catch (OperationCanceledException)
+            {
+                // Ignore cancellation when a new voice event supersedes this persist request.
+            }
+        }, CancellationToken.None);
+    }
+
     private void EnsureLayerHistory()
     {
         foreach (var note in _notes)
         {
+            note.Id = string.IsNullOrWhiteSpace(note.Id) ? Guid.NewGuid().ToString("N") : note.Id.Trim();
+            note.Title = string.IsNullOrWhiteSpace(note.Title) ? "Untitled note" : note.Title.Trim();
+            note.Content ??= string.Empty;
+            note.Layers = (note.Layers ?? [])
+                .Where(layer => layer is not null)
+                .ToList();
+            if (note.UpdatedAt == default)
+            {
+                note.UpdatedAt = DateTimeOffset.UtcNow;
+            }
+            EnsureVoiceAuditHistory(note);
+
             if (note.Layers.Count == 0)
             {
                 EnsureInitialLayer(note, "seed", "local", "Initial capture");
@@ -1157,6 +1833,161 @@ public partial class Home : ComponentBase, IAsyncDisposable
                 }
             }
         }
+    }
+
+    private static List<NoteDocument> NormalizeLoadedNotes(List<NoteDocument>? notes)
+    {
+        if (notes is null || notes.Count == 0)
+        {
+            return [];
+        }
+
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
+        var normalized = new List<NoteDocument>(notes.Count);
+
+        foreach (var rawNote in notes)
+        {
+            if (rawNote is null)
+            {
+                continue;
+            }
+
+            var id = string.IsNullOrWhiteSpace(rawNote.Id) ? Guid.NewGuid().ToString("N") : rawNote.Id.Trim();
+            if (!seenIds.Add(id))
+            {
+                id = Guid.NewGuid().ToString("N");
+                seenIds.Add(id);
+            }
+
+            var title = string.IsNullOrWhiteSpace(rawNote.Title) ? "Untitled note" : rawNote.Title.Trim();
+            var content = rawNote.Content ?? string.Empty;
+            var updatedAt = rawNote.UpdatedAt == default ? DateTimeOffset.UtcNow : rawNote.UpdatedAt;
+            var sanitizedLayers = new List<NoteLayer>();
+            foreach (var layer in rawNote.Layers ?? [])
+            {
+                if (layer is null)
+                {
+                    continue;
+                }
+
+                layer.LayerId = string.IsNullOrWhiteSpace(layer.LayerId) ? Guid.NewGuid().ToString("N") : layer.LayerId.Trim();
+                layer.Operation = string.IsNullOrWhiteSpace(layer.Operation) ? "manual-edit" : layer.Operation.Trim();
+                layer.Source = string.IsNullOrWhiteSpace(layer.Source) ? "local" : layer.Source.Trim();
+                layer.TitleBefore ??= title;
+                layer.TitleAfter ??= title;
+                layer.Snapshot ??= CaptureSnapshot(content);
+                layer.CreatedAt = layer.CreatedAt == default ? updatedAt : layer.CreatedAt;
+                layer.UpdatedAt = layer.UpdatedAt == default ? layer.CreatedAt : layer.UpdatedAt;
+                sanitizedLayers.Add(layer);
+            }
+
+            var sanitizedVoiceSessions = NormalizeVoiceSessions(rawNote.VoiceSessions, updatedAt);
+
+            normalized.Add(new NoteDocument
+            {
+                Id = id,
+                Title = title,
+                Content = content,
+                UpdatedAt = updatedAt,
+                Layers = sanitizedLayers,
+                VoiceSessions = sanitizedVoiceSessions
+            });
+        }
+
+        return normalized;
+    }
+
+    private static List<VoiceSessionAudit> NormalizeVoiceSessions(List<VoiceSessionAudit>? sessions, DateTimeOffset fallbackTimestamp)
+    {
+        var sanitized = new List<VoiceSessionAudit>();
+        foreach (var rawSession in sessions ?? [])
+        {
+            if (rawSession is null)
+            {
+                continue;
+            }
+
+            var startedAt = rawSession.StartedAt == default ? fallbackTimestamp : rawSession.StartedAt;
+            var endedAt = rawSession.EndedAt;
+            if (endedAt is not null && endedAt.Value < startedAt)
+            {
+                endedAt = startedAt;
+            }
+
+            var normalizedEvents = new List<VoiceAuditEvent>();
+            foreach (var rawEvent in rawSession.Events ?? [])
+            {
+                if (rawEvent is null)
+                {
+                    continue;
+                }
+
+                normalizedEvents.Add(new VoiceAuditEvent
+                {
+                    At = rawEvent.At == default ? startedAt : rawEvent.At,
+                    Kind = string.IsNullOrWhiteSpace(rawEvent.Kind) ? "event" : rawEvent.Kind.Trim(),
+                    Source = string.IsNullOrWhiteSpace(rawEvent.Source) ? "browser-speech" : rawEvent.Source.Trim(),
+                    Text = NormalizeVoiceEventText(rawEvent.Text),
+                    Detail = string.IsNullOrWhiteSpace(rawEvent.Detail) ? null : rawEvent.Detail.Trim(),
+                    RangeStart = rawEvent.RangeStart,
+                    RangeEnd = rawEvent.RangeEnd
+                });
+            }
+
+            normalizedEvents = normalizedEvents
+                .OrderBy(evt => evt.At)
+                .TakeLast(MaxVoiceEventsPerSession)
+                .ToList();
+
+            sanitized.Add(new VoiceSessionAudit
+            {
+                SessionId = string.IsNullOrWhiteSpace(rawSession.SessionId) ? Guid.NewGuid().ToString("N") : rawSession.SessionId.Trim(),
+                StartedAt = startedAt,
+                EndedAt = endedAt,
+                Status = NormalizeVoiceSessionStatus(rawSession.Status),
+                Source = string.IsNullOrWhiteSpace(rawSession.Source) ? "browser-speech" : rawSession.Source.Trim(),
+                Events = normalizedEvents
+            });
+        }
+
+        return sanitized
+            .OrderBy(session => session.StartedAt)
+            .TakeLast(MaxVoiceSessionsPerNote)
+            .ToList();
+    }
+
+    private void EnsureVoiceAuditHistory(NoteDocument note)
+    {
+        note.VoiceSessions = NormalizeVoiceSessions(note.VoiceSessions, note.UpdatedAt);
+        TrimVoiceSessionHistory(note.VoiceSessions);
+    }
+
+    private static void TrimVoiceSessionHistory(List<VoiceSessionAudit> sessions)
+    {
+        if (sessions.Count <= MaxVoiceSessionsPerNote)
+        {
+            return;
+        }
+
+        sessions.RemoveRange(0, sessions.Count - MaxVoiceSessionsPerNote);
+    }
+
+    private static string NormalizeVoiceSessionStatus(string? status)
+    {
+        if (string.IsNullOrWhiteSpace(status))
+        {
+            return "recording";
+        }
+
+        var normalized = status.Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "recording" => "recording",
+            "stopped" => "stopped",
+            "completed" => "completed",
+            "error" => "error",
+            _ => normalized
+        };
     }
 
     private void EnsureInitialLayer(NoteDocument note, string operation, string source, string annotation)
@@ -1405,6 +2236,30 @@ public partial class Home : ComponentBase, IAsyncDisposable
         return content[..safeStart] + replacement + content[safeEnd..];
     }
 
+    private static string NormalizeVoiceEventText(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return string.Empty;
+        }
+
+        var normalized = Regex.Replace(text.Trim(), @"\s+", " ");
+        return normalized.Length <= MaxVoiceEventTextLength
+            ? normalized
+            : normalized[..MaxVoiceEventTextLength] + "...";
+    }
+
+    private static string ToPanelSnippet(string text, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return string.Empty;
+        }
+
+        var normalized = NormalizeVoiceEventText(text);
+        return normalized.Length <= maxLength ? normalized : normalized[..maxLength] + "...";
+    }
+
     private static string FormatPreview(string content)
     {
         if (string.IsNullOrWhiteSpace(content))
@@ -1468,6 +2323,9 @@ public partial class Home : ComponentBase, IAsyncDisposable
         _debounceCts?.Cancel();
         _debounceCts?.Dispose();
 
+        _voiceAuditPersistCts?.Cancel();
+        _voiceAuditPersistCts?.Dispose();
+
         if (_isVoiceRecording)
         {
             try
@@ -1498,6 +2356,7 @@ public partial class Home : ComponentBase, IAsyncDisposable
         public string Content { get; set; } = string.Empty;
         public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
         public List<NoteLayer> Layers { get; set; } = [];
+        public List<VoiceSessionAudit> VoiceSessions { get; set; } = [];
 
         public static List<NoteDocument> CreateStarterSet()
         {
@@ -1550,6 +2409,16 @@ public partial class Home : ComponentBase, IAsyncDisposable
         public string Description { get; init; } = string.Empty;
         public string Mode { get; init; } = string.Empty;
         public string? Prompt { get; init; }
+    }
+
+    private sealed class InsightCacheEntry
+    {
+        public string ContentSignature { get; set; } = string.Empty;
+        public string PluginSignature { get; set; } = string.Empty;
+        public List<string> Hints { get; set; } = [];
+        public List<string> Help { get; set; } = [];
+        public List<string> Brainstorm { get; set; } = [];
+        public Dictionary<string, List<string>> PluginPanels { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     }
 
     private sealed class SlashCommandDefinition
@@ -1623,6 +2492,27 @@ public partial class Home : ComponentBase, IAsyncDisposable
         public double Formality { get; set; }
     }
 
+    private sealed class VoiceSessionAudit
+    {
+        public string SessionId { get; set; } = Guid.NewGuid().ToString("N");
+        public DateTimeOffset StartedAt { get; set; } = DateTimeOffset.UtcNow;
+        public DateTimeOffset? EndedAt { get; set; }
+        public string Status { get; set; } = "recording";
+        public string Source { get; set; } = "browser-speech";
+        public List<VoiceAuditEvent> Events { get; set; } = [];
+    }
+
+    private sealed class VoiceAuditEvent
+    {
+        public DateTimeOffset At { get; set; } = DateTimeOffset.UtcNow;
+        public string Kind { get; set; } = "event";
+        public string Text { get; set; } = string.Empty;
+        public string Source { get; set; } = "browser-speech";
+        public string? Detail { get; set; }
+        public int? RangeStart { get; set; }
+        public int? RangeEnd { get; set; }
+    }
+
     private sealed class DictationStartResult
     {
         public bool Started { get; set; }
@@ -1635,6 +2525,9 @@ public partial class Home : ComponentBase, IAsyncDisposable
         public int Start { get; set; }
         public int End { get; set; }
     }
+
+    private sealed record VoiceInterimRange(string NoteId, int Start, int End);
+    private sealed record VoiceCleanupRequest(NoteDocument Note, int Start, int End, string InsertedSegment, string RawTranscript);
 
     private sealed class PaletteCommand
     {

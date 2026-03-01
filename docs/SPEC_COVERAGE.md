@@ -1,6 +1,6 @@
 # Spec Coverage Matrix
 
-This matrix links each acceptance criterion to a deterministic check.
+This matrix maps each acceptance criterion to deterministic validation evidence.
 
 | Acceptance ID | Requirement Summary | Coverage |
 |---|---|---|
@@ -19,9 +19,10 @@ This matrix links each acceptance criterion to a deterministic check.
 | AC-13 | Provider summary exposes preference/config | `API provider summary reports ollama preference` |
 | AC-14 | Ollama supported as provider | `API provider summary reports ollama preference`; `AI API continue and slash endpoints return content` |
 | AC-15 | Voice capture toggle via Ctrl+M and toolbar | `Voice capture shortcut toggles and inserts transcript`; `Voice capture toolbar toggle works` |
-| AC-16 | Voice transcript insertion + AI cleanup | `Voice capture shortcut toggles and inserts transcript`; `Voice cleanup attempt is recorded in layer history` |
+| AC-16 | Live interim voice transcript + AI cleanup | `Voice interim transcript appears at cursor before final cleanup`; `Voice cleanup attempt is recorded in layer history` |
 | AC-17 | JSON edit layers persist diff/tone metadata | `Edit layers are persisted with diff and tone metrics` |
 | AC-18 | History QC panel surfaces checkpoints | `Edit layers are persisted with diff and tone metrics` |
+| AC-24 | Voice session audit logs are persisted and reviewable | `Voice recordings are reviewable in persisted audit logs`; `Voice interim transcript appears at cursor before final cleanup` |
 | AC-19 | System theme-aware styling | `System dark theme variables are applied` |
 | AC-20 | Client/server and client-only runtime modes | `AI continue appends content in the editor`; `Client-only mode continues draft without API service` |
 | AC-21 | Docker assets support both runtime profiles | `.github/workflows/docker.yml` Docker target matrix |

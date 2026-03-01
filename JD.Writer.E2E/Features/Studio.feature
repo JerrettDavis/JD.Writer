@@ -27,6 +27,20 @@ Feature: Studio acceptance criteria
     Then the note title input should be "E2E Local Persistence"
     And the editor should contain "# Persisted Note"
 
+  Scenario: Corrupted local state is recovered without a circuit crash
+    Given JD.Writer is running for e2e tests
+    When I open the studio home page
+    And I inject corrupted local workspace state
+    And I reload the page
+    Then the studio title should contain "Markdown Studio"
+
+  Scenario: Oversized local state does not break circuit initialization
+    Given JD.Writer is running for e2e tests
+    When I open the studio home page
+    And I inject oversized local workspace state
+    And I reload the page
+    Then the studio title should contain "Markdown Studio"
+
   Scenario: Preview render theme can change without app theme shift
     Given JD.Writer is running for e2e tests
     When I open the studio home page
@@ -61,6 +75,17 @@ Feature: Studio acceptance criteria
     Then the editor should contain "voice dictated backlog item"
     And voice status should contain "Voice:"
 
+  Scenario: Voice interim transcript appears at cursor before final cleanup
+    Given JD.Writer is running for e2e tests
+    When I open the studio home page
+    And I enable voice test mode
+    And I place cursor at the end of the editor
+    And I toggle voice capture with keyboard
+    When I inject interim voice transcript "words should flow instantly"
+    Then the editor should contain "words should flow instantly"
+    When I finalize voice transcript "words should flow instantly"
+    Then local state should include voice transcript and cleanup operations
+
   Scenario: Voice capture toolbar toggle works
     Given JD.Writer is running for e2e tests
     When I open the studio home page
@@ -78,6 +103,18 @@ Feature: Studio acceptance criteria
     And I toggle voice capture with keyboard
     And I inject voice transcript "voice cleanup should run"
     Then local state should include voice transcript and cleanup operations
+
+  Scenario: Voice recordings are reviewable in persisted audit logs
+    Given JD.Writer is running for e2e tests
+    When I open the studio home page
+    And I enable voice test mode
+    And I place cursor at the end of the editor
+    And I toggle voice capture with keyboard
+    And I inject interim voice transcript "review log interim"
+    And I finalize voice transcript "review log finalized payload"
+    Then plugin panel "Voice Review" should be visible
+    And local state should include voice session transcript events
+    And voice review panel should contain "review log finalized payload"
 
   Scenario: System dark theme variables are applied
     Given JD.Writer is running for e2e tests

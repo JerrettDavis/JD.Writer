@@ -69,25 +69,41 @@ window.JDWriterStudio = {
     recognition.onend = () => {
       this._dictationState.isRunning = false;
       this._dictationState.recognition = null;
+      this._notifyTranscriptInterim("");
       this._notifyCaptureStatus("stopped");
     };
     recognition.onerror = (event) => {
       this._dictationState.isRunning = false;
       this._dictationState.recognition = null;
+      this._notifyTranscriptInterim("");
       this._notifyCaptureStatus("error:" + (event && event.error ? event.error : "unknown"));
     };
     recognition.onresult = (event) => {
       let finalText = "";
+      let interimText = "";
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i];
-        if (result.isFinal && result[0] && result[0].transcript) {
-          finalText += result[0].transcript + " ";
+        if (!result || !result[0] || !result[0].transcript) {
+          continue;
+        }
+
+        const fragment = result[0].transcript.trim();
+        if (fragment.length === 0) {
+          continue;
+        }
+
+        if (result.isFinal) {
+          finalText += fragment + " ";
+        } else {
+          interimText += fragment + " ";
         }
       }
 
-      const trimmed = finalText.trim();
-      if (trimmed.length > 0) {
-        this._notifyTranscript(trimmed);
+      this._notifyTranscriptInterim(interimText.trim());
+
+      const finalized = finalText.trim();
+      if (finalized.length > 0) {
+        this._notifyTranscriptFinalized(finalized);
       }
     };
 
@@ -102,6 +118,7 @@ window.JDWriterStudio = {
   },
   stopDictation: function () {
     this._dictationState.isRunning = false;
+    this._notifyTranscriptInterim("");
 
     if (this._dictationState.recognition) {
       try {
@@ -114,7 +131,7 @@ window.JDWriterStudio = {
 
     this._notifyCaptureStatus("stopped");
   },
-  emitTestTranscript: function (text) {
+  emitTestInterimTranscript: function (text) {
     if (!this._dictationState.testMode) {
       return false;
     }
@@ -129,10 +146,46 @@ window.JDWriterStudio = {
       this._notifyCaptureStatus("recording");
     }
 
-    this._notifyTranscript(trimmed);
+    this._notifyTranscriptInterim(trimmed);
     return true;
   },
-  insertTextAtCursor: function (editor, text) {
+  emitTestFinalTranscript: function (text) {
+    if (!this._dictationState.testMode) {
+      return false;
+    }
+
+    const trimmed = (text || "").trim();
+    if (trimmed.length === 0) {
+      return false;
+    }
+
+    if (!this._dictationState.isRunning) {
+      this._dictationState.isRunning = true;
+      this._notifyCaptureStatus("recording");
+    }
+
+    this._notifyTranscriptFinalized(trimmed);
+    this._notifyTranscriptInterim("");
+    return true;
+  },
+  emitTestTranscript: function (text) {
+    if (!this.emitTestInterimTranscript(text)) {
+      return false;
+    }
+
+    const trimmed = (text || "").trim();
+    window.setTimeout(() => {
+      this.emitTestFinalTranscript(trimmed);
+    }, 0);
+    return true;
+  },
+  insertTextAtCursor: function (editor, text, options) {
+    return this._insertOrReplaceText(editor, text, null, null, options);
+  },
+  replaceTextRange: function (editor, start, end, text, options) {
+    return this._insertOrReplaceText(editor, text, start, end, options);
+  },
+  _insertOrReplaceText: function (editor, text, start, end, options) {
     const target = editor && typeof editor.value === "string"
       ? editor
       : document.querySelector("textarea.editor-input");
@@ -141,33 +194,46 @@ window.JDWriterStudio = {
       return { value: "", start: 0, end: 0 };
     }
 
+    const hasExplicitRange = Number.isInteger(start) && Number.isInteger(end) && end >= start;
     const safeText = (text || "").trim();
-    if (safeText.length === 0) {
+    if (safeText.length === 0 && !hasExplicitRange) {
       return { value: target.value || "", start: 0, end: 0 };
     }
 
-    const start = typeof target.selectionStart === "number" ? target.selectionStart : target.value.length;
-    const end = typeof target.selectionEnd === "number" ? target.selectionEnd : target.value.length;
-    const prefix = target.value.slice(0, start);
-    const suffix = target.value.slice(end);
+    const baseStart = hasExplicitRange
+      ? Math.max(0, Math.min(start, target.value.length))
+      : (typeof target.selectionStart === "number" ? target.selectionStart : target.value.length);
+    const rawEnd = hasExplicitRange
+      ? Math.max(baseStart, Math.min(end, target.value.length))
+      : (typeof target.selectionEnd === "number" ? target.selectionEnd : target.value.length);
+
+    const prefix = target.value.slice(0, baseStart);
+    const suffix = target.value.slice(rawEnd);
 
     let insertion = safeText;
-    if (prefix.length > 0 && !prefix.endsWith("\n") && !prefix.endsWith(" ")) {
-      insertion = " " + insertion;
-    }
-    if (suffix.length > 0 && !suffix.startsWith("\n") && !suffix.startsWith(" ")) {
-      insertion += " ";
+    if (safeText.length > 0) {
+      if (prefix.length > 0 && !prefix.endsWith("\n") && !prefix.endsWith(" ")) {
+        insertion = " " + insertion;
+      }
+      if (suffix.length > 0 && !suffix.startsWith("\n") && !suffix.startsWith(" ")) {
+        insertion += " ";
+      }
     }
 
     target.value = prefix + insertion + suffix;
-    const caret = (prefix + insertion).length;
-    target.setSelectionRange(caret, caret);
-    target.dispatchEvent(new Event("input", { bubbles: true }));
+    const rangeStart = prefix.length;
+    const rangeEnd = rangeStart + insertion.length;
+    target.setSelectionRange(rangeEnd, rangeEnd);
+
+    const shouldDispatchInput = !options || options.dispatchInput !== false;
+    if (shouldDispatchInput) {
+      target.dispatchEvent(new Event("input", { bubbles: true }));
+    }
 
     return {
       value: target.value,
-      start: prefix.length,
-      end: prefix.length + insertion.length
+      start: rangeStart,
+      end: rangeEnd
     };
   },
   _notifyCaptureStatus: function (status) {
@@ -178,7 +244,15 @@ window.JDWriterStudio = {
 
     ref.invokeMethodAsync("OnVoiceCaptureStatusChanged", status).catch(() => {});
   },
-  _notifyTranscript: function (text) {
+  _notifyTranscriptInterim: function (text) {
+    const ref = this._dictationState.dotNetRef;
+    if (!ref || typeof ref.invokeMethodAsync !== "function") {
+      return;
+    }
+
+    ref.invokeMethodAsync("OnVoiceTranscriptInterim", text || "").catch(() => {});
+  },
+  _notifyTranscriptFinalized: function (text) {
     const ref = this._dictationState.dotNetRef;
     if (!ref || typeof ref.invokeMethodAsync !== "function") {
       return;

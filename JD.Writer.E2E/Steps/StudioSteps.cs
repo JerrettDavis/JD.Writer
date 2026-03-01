@@ -93,6 +93,24 @@ public sealed class StudioSteps
         await page.WaitForTimeoutAsync(300);
     }
 
+    [When(@"I inject interim voice transcript ""(.*)""")]
+    public async Task WhenIInjectInterimVoiceTranscript(string transcript)
+    {
+        var page = _scenarioContext.GetState().Page!;
+        var escaped = JsonSerializer.Serialize(transcript);
+        await page.EvaluateAsync($"window.JDWriterStudio.emitTestInterimTranscript({escaped})");
+        await page.WaitForTimeoutAsync(80);
+    }
+
+    [When(@"I finalize voice transcript ""(.*)""")]
+    public async Task WhenIFinalizeVoiceTranscript(string transcript)
+    {
+        var page = _scenarioContext.GetState().Page!;
+        var escaped = JsonSerializer.Serialize(transcript);
+        await page.EvaluateAsync($"window.JDWriterStudio.emitTestFinalTranscript({escaped})");
+        await page.WaitForTimeoutAsync(250);
+    }
+
     [Then("I should see the command palette")]
     public async Task ThenIShouldSeeTheCommandPalette()
     {
@@ -157,6 +175,75 @@ public sealed class StudioSteps
         await page.WaitForTimeoutAsync(300);
     }
 
+    [When("I inject corrupted local workspace state")]
+    public async Task WhenIInjectCorruptedLocalWorkspaceState()
+    {
+        var page = _scenarioContext.GetState().Page!;
+        var corruptedState = JsonSerializer.Serialize(new
+        {
+            activeNoteId = "broken-note",
+            previewTheme = "studio",
+            notes = new[]
+            {
+                new
+                {
+                    id = "broken-note",
+                    title = (string?)null,
+                    content = (string?)null,
+                    updatedAt = DateTimeOffset.UtcNow,
+                    layers = new object?[]
+                    {
+                        null
+                    }
+                }
+            }
+        });
+
+        await page.EvaluateAsync(
+            "(raw) => window.localStorage.setItem('jdwriter.state.v1', raw)",
+            corruptedState);
+    }
+
+    [When("I inject oversized local workspace state")]
+    public async Task WhenIInjectOversizedLocalWorkspaceState()
+    {
+        var page = _scenarioContext.GetState().Page!;
+        var hugeContent = "# Oversized state\n\n" + new string('x', 140_000);
+        var oversizedState = JsonSerializer.Serialize(new
+        {
+            activeNoteId = "large-note",
+            previewTheme = "studio",
+            notes = new[]
+            {
+                new
+                {
+                    id = "large-note",
+                    title = "Large note",
+                    content = hugeContent,
+                    updatedAt = DateTimeOffset.UtcNow,
+                    layers = new object?[]
+                    {
+                        new
+                        {
+                            layerId = "large-layer",
+                            createdAt = DateTimeOffset.UtcNow,
+                            updatedAt = DateTimeOffset.UtcNow,
+                            operation = "manual-edit",
+                            source = "local",
+                            titleBefore = "Large note",
+                            titleAfter = "Large note",
+                            snapshot = hugeContent
+                        }
+                    }
+                }
+            }
+        });
+
+        await page.EvaluateAsync(
+            "(raw) => window.localStorage.setItem('jdwriter.state.v1', raw)",
+            oversizedState);
+    }
+
     [Then("I should see slash command suggestions")]
     public async Task ThenIShouldSeeSlashCommandSuggestions()
     {
@@ -184,6 +271,13 @@ public sealed class StudioSteps
     {
         var page = _scenarioContext.GetState().Page!;
         await WaitForEditorToContainAsync(page, Normalize(value), TimeSpan.FromSeconds(10));
+    }
+
+    [Then(@"the studio title should contain ""(.*)""")]
+    public async Task ThenTheStudioTitleShouldContain(string title)
+    {
+        var page = _scenarioContext.GetState().Page!;
+        await Assertions.Expect(page.Locator(".studio-header h1")).ToContainTextAsync(title);
     }
 
     [When(@"I set note title to ""(.*)""")]
@@ -526,6 +620,83 @@ public sealed class StudioSteps
             ? "(none)"
             : string.Join(", ", lastOperations);
         throw new AssertionException($"Expected voice-transcript and voice-cleanup layer operations in local state. Operations: {operationText}");
+    }
+
+    [Then("local state should include voice session transcript events")]
+    public async Task ThenLocalStateShouldIncludeVoiceSessionTranscriptEvents()
+    {
+        var page = _scenarioContext.GetState().Page!;
+        var deadline = DateTime.UtcNow.AddSeconds(20);
+        var lastPayload = string.Empty;
+
+        while (DateTime.UtcNow < deadline)
+        {
+            var payload = await page.EvaluateAsync<string>(@"
+                (() => {
+                    const raw = localStorage.getItem('jdwriter.state.v1');
+                    if (!raw) return '';
+                    const state = JSON.parse(raw);
+                    if (!state || !Array.isArray(state.notes) || state.notes.length === 0) return '';
+                    const activeNote = state.notes.find(n => n.id === state.activeNoteId) || state.notes[0];
+                    if (!activeNote || !Array.isArray(activeNote.voiceSessions) || activeNote.voiceSessions.length === 0) return '';
+                    const latest = activeNote.voiceSessions[activeNote.voiceSessions.length - 1];
+                    if (!latest || !Array.isArray(latest.events)) return '';
+                    return JSON.stringify(latest.events);
+                })();
+            ");
+
+            lastPayload = payload;
+            if (!string.IsNullOrWhiteSpace(payload))
+            {
+                using var json = JsonDocument.Parse(payload);
+                if (json.RootElement.ValueKind == JsonValueKind.Array)
+                {
+                    var events = json.RootElement.EnumerateArray().ToList();
+                    var hasInterim = events.Any(evt =>
+                        evt.TryGetProperty("kind", out var kind) &&
+                        string.Equals(kind.GetString(), "transcript-interim", StringComparison.OrdinalIgnoreCase));
+                    var hasFinal = events.Any(evt =>
+                        evt.TryGetProperty("kind", out var kind) &&
+                        string.Equals(kind.GetString(), "transcript-finalized", StringComparison.OrdinalIgnoreCase));
+                    var hasInserted = events.Any(evt =>
+                        evt.TryGetProperty("kind", out var kind) &&
+                        string.Equals(kind.GetString(), "transcript-inserted", StringComparison.OrdinalIgnoreCase));
+
+                    if (hasInterim && hasFinal && hasInserted)
+                    {
+                        return;
+                    }
+                }
+            }
+
+            await page.WaitForTimeoutAsync(200);
+        }
+
+        throw new AssertionException($"Expected persisted voice session events (interim/finalized/inserted). Payload: {lastPayload}");
+    }
+
+    [Then(@"voice review panel should contain ""(.*)""")]
+    public async Task ThenVoiceReviewPanelShouldContain(string text)
+    {
+        var page = _scenarioContext.GetState().Page!;
+        var normalized = Normalize(text);
+        var reviewPanel = page.Locator("//section[contains(@class,'tool-window')][.//h2[normalize-space()='Voice Review']]");
+        await Assertions.Expect(reviewPanel).ToBeVisibleAsync();
+
+        var deadline = DateTime.UtcNow.AddSeconds(15);
+        while (DateTime.UtcNow < deadline)
+        {
+            var panelText = await reviewPanel.First.InnerTextAsync();
+            if (panelText.Contains(normalized, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            await page.WaitForTimeoutAsync(200);
+        }
+
+        var latestPanelText = await reviewPanel.First.InnerTextAsync();
+        throw new AssertionException($"Voice Review panel did not contain expected text '{normalized}'. Actual panel text: {latestPanelText}");
     }
 
     [Then(@"app background variable should be ""(.*)""")]

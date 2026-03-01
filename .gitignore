@@ -40,7 +40,8 @@ coverage-report/
 
 ## DocFX
 docs/_site/
-docs/api/
+docs/api/**
+!docs/api/
 !docs/api/index.md
 
 ## Node / web tooling
@@ -56,4 +57,3 @@ $RECYCLE.BIN/
 ## Local scratch
 tmpclaude-*/
 *.tmp
-

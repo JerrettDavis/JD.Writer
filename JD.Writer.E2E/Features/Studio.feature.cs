@@ -105,7 +105,7 @@ namespace JD.Writer.E2E.Features
         
         private static global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages InitializeCucumberMessages()
         {
-            return new global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages("Features/Studio.feature.ndjson", 18);
+            return new global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages("Features/Studio.feature.ndjson", 22);
         }
         
         [global::NUnit.Framework.TestAttribute()]
@@ -241,13 +241,13 @@ namespace JD.Writer.E2E.Features
         }
         
         [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("Preview render theme can change without app theme shift")]
-        public async global::System.Threading.Tasks.Task PreviewRenderThemeCanChangeWithoutAppThemeShift()
+        [global::NUnit.Framework.DescriptionAttribute("Corrupted local state is recovered without a circuit crash")]
+        public async global::System.Threading.Tasks.Task CorruptedLocalStateIsRecoveredWithoutACircuitCrash()
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
             string pickleIndex = "3";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Preview render theme can change without app theme shift", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Corrupted local state is recovered without a circuit crash", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
 #line 30
@@ -267,21 +267,99 @@ namespace JD.Writer.E2E.Features
     await testRunner.WhenAsync("I open the studio home page", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
 #line 33
-    await testRunner.AndAsync("I choose preview render theme \"terminal\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+    await testRunner.AndAsync("I inject corrupted local workspace state", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
 #line 34
-    await testRunner.ThenAsync("preview render theme should be \"terminal\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+    await testRunner.AndAsync("I reload the page", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
 #line 35
-    await testRunner.AndAsync("preview should use render class \"preview-theme-terminal\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+    await testRunner.ThenAsync("the studio title should contain \"Markdown Studio\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
-#line 36
-    await testRunner.WhenAsync("I reload the page", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
-#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::NUnit.Framework.TestAttribute()]
+        [global::NUnit.Framework.DescriptionAttribute("Oversized local state does not break circuit initialization")]
+        public async global::System.Threading.Tasks.Task OversizedLocalStateDoesNotBreakCircuitInitialization()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "4";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Oversized local state does not break circuit initialization", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
 #line 37
+  this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 38
+    await testRunner.GivenAsync("JD.Writer is running for e2e tests", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line hidden
+#line 39
+    await testRunner.WhenAsync("I open the studio home page", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 40
+    await testRunner.AndAsync("I inject oversized local workspace state", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 41
+    await testRunner.AndAsync("I reload the page", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 42
+    await testRunner.ThenAsync("the studio title should contain \"Markdown Studio\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::NUnit.Framework.TestAttribute()]
+        [global::NUnit.Framework.DescriptionAttribute("Preview render theme can change without app theme shift")]
+        public async global::System.Threading.Tasks.Task PreviewRenderThemeCanChangeWithoutAppThemeShift()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "5";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Preview render theme can change without app theme shift", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 44
+  this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 45
+    await testRunner.GivenAsync("JD.Writer is running for e2e tests", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line hidden
+#line 46
+    await testRunner.WhenAsync("I open the studio home page", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 47
+    await testRunner.AndAsync("I choose preview render theme \"terminal\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 48
     await testRunner.ThenAsync("preview render theme should be \"terminal\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
-#line 38
+#line 49
+    await testRunner.AndAsync("preview should use render class \"preview-theme-terminal\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 50
+    await testRunner.WhenAsync("I reload the page", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 51
+    await testRunner.ThenAsync("preview render theme should be \"terminal\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+#line 52
     await testRunner.AndAsync("preview should use render class \"preview-theme-terminal\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
             }
@@ -294,86 +372,8 @@ namespace JD.Writer.E2E.Features
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "4";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("AI continue appends content in the editor", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
-            string[] tagsOfRule = ((string[])(null));
-            global::Reqnroll.RuleInfo ruleInfo = null;
-#line 40
-  this.ScenarioInitialize(scenarioInfo, ruleInfo);
-#line hidden
-            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
-            {
-                await testRunner.SkipScenarioAsync();
-            }
-            else
-            {
-                await this.ScenarioStartAsync();
-#line 41
-    await testRunner.GivenAsync("JD.Writer is running for e2e tests", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
-#line hidden
-#line 42
-    await testRunner.WhenAsync("I open the studio home page", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
-#line hidden
-#line 43
-    await testRunner.AndAsync("I type \"# Continue Target\\n\\n- first line\" in the editor", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
-#line hidden
-#line 44
-    await testRunner.AndAsync("I trigger AI continue from the toolbar", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
-#line hidden
-#line 45
-    await testRunner.ThenAsync("editor content should be longer than before", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
-#line hidden
-            }
-            await this.ScenarioCleanupAsync();
-        }
-        
-        [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("Client-only mode continues draft without API service")]
-        public async global::System.Threading.Tasks.Task Client_OnlyModeContinuesDraftWithoutAPIService()
-        {
-            string[] tagsOfScenario = ((string[])(null));
-            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "5";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Client-only mode continues draft without API service", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
-            string[] tagsOfRule = ((string[])(null));
-            global::Reqnroll.RuleInfo ruleInfo = null;
-#line 47
-  this.ScenarioInitialize(scenarioInfo, ruleInfo);
-#line hidden
-            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
-            {
-                await testRunner.SkipScenarioAsync();
-            }
-            else
-            {
-                await this.ScenarioStartAsync();
-#line 48
-    await testRunner.GivenAsync("JD.Writer client-only mode is running for e2e tests", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
-#line hidden
-#line 49
-    await testRunner.WhenAsync("I open the studio home page", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
-#line hidden
-#line 50
-    await testRunner.AndAsync("I type \"# Standalone mode\\n\\n- keep writing locally\" in the editor", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
-#line hidden
-#line 51
-    await testRunner.AndAsync("I trigger AI continue from the toolbar", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
-#line hidden
-#line 52
-    await testRunner.ThenAsync("editor content should be longer than before", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
-#line hidden
-            }
-            await this.ScenarioCleanupAsync();
-        }
-        
-        [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("Voice capture shortcut toggles and inserts transcript")]
-        public async global::System.Threading.Tasks.Task VoiceCaptureShortcutTogglesAndInsertsTranscript()
-        {
-            string[] tagsOfScenario = ((string[])(null));
-            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
             string pickleIndex = "6";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Voice capture shortcut toggles and inserts transcript", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("AI continue appends content in the editor", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
 #line 54
@@ -393,22 +393,151 @@ namespace JD.Writer.E2E.Features
     await testRunner.WhenAsync("I open the studio home page", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
 #line 57
-    await testRunner.AndAsync("I enable voice test mode", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+    await testRunner.AndAsync("I type \"# Continue Target\\n\\n- first line\" in the editor", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
 #line 58
-    await testRunner.AndAsync("I place cursor at the end of the editor", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+    await testRunner.AndAsync("I trigger AI continue from the toolbar", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
 #line 59
+    await testRunner.ThenAsync("editor content should be longer than before", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::NUnit.Framework.TestAttribute()]
+        [global::NUnit.Framework.DescriptionAttribute("Client-only mode continues draft without API service")]
+        public async global::System.Threading.Tasks.Task Client_OnlyModeContinuesDraftWithoutAPIService()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "7";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Client-only mode continues draft without API service", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 61
+  this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 62
+    await testRunner.GivenAsync("JD.Writer client-only mode is running for e2e tests", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line hidden
+#line 63
+    await testRunner.WhenAsync("I open the studio home page", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 64
+    await testRunner.AndAsync("I type \"# Standalone mode\\n\\n- keep writing locally\" in the editor", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 65
+    await testRunner.AndAsync("I trigger AI continue from the toolbar", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 66
+    await testRunner.ThenAsync("editor content should be longer than before", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::NUnit.Framework.TestAttribute()]
+        [global::NUnit.Framework.DescriptionAttribute("Voice capture shortcut toggles and inserts transcript")]
+        public async global::System.Threading.Tasks.Task VoiceCaptureShortcutTogglesAndInsertsTranscript()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "8";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Voice capture shortcut toggles and inserts transcript", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 68
+  this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 69
+    await testRunner.GivenAsync("JD.Writer is running for e2e tests", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line hidden
+#line 70
+    await testRunner.WhenAsync("I open the studio home page", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 71
+    await testRunner.AndAsync("I enable voice test mode", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 72
+    await testRunner.AndAsync("I place cursor at the end of the editor", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 73
     await testRunner.AndAsync("I toggle voice capture with keyboard", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 60
+#line 74
     await testRunner.AndAsync("I inject voice transcript \"voice dictated backlog item\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 61
+#line 75
     await testRunner.ThenAsync("the editor should contain \"voice dictated backlog item\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
-#line 62
+#line 76
     await testRunner.AndAsync("voice status should contain \"Voice:\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::NUnit.Framework.TestAttribute()]
+        [global::NUnit.Framework.DescriptionAttribute("Voice interim transcript appears at cursor before final cleanup")]
+        public async global::System.Threading.Tasks.Task VoiceInterimTranscriptAppearsAtCursorBeforeFinalCleanup()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "9";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Voice interim transcript appears at cursor before final cleanup", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 78
+  this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 79
+    await testRunner.GivenAsync("JD.Writer is running for e2e tests", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line hidden
+#line 80
+    await testRunner.WhenAsync("I open the studio home page", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 81
+    await testRunner.AndAsync("I enable voice test mode", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 82
+    await testRunner.AndAsync("I place cursor at the end of the editor", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 83
+    await testRunner.AndAsync("I toggle voice capture with keyboard", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 84
+    await testRunner.WhenAsync("I inject interim voice transcript \"words should flow instantly\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 85
+    await testRunner.ThenAsync("the editor should contain \"words should flow instantly\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+#line 86
+    await testRunner.WhenAsync("I finalize voice transcript \"words should flow instantly\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 87
+    await testRunner.ThenAsync("local state should include voice transcript and cleanup operations", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
             await this.ScenarioCleanupAsync();
@@ -420,11 +549,11 @@ namespace JD.Writer.E2E.Features
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "7";
+            string pickleIndex = "10";
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Voice capture toolbar toggle works", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
-#line 64
+#line 89
   this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -434,25 +563,25 @@ namespace JD.Writer.E2E.Features
             else
             {
                 await this.ScenarioStartAsync();
-#line 65
+#line 90
     await testRunner.GivenAsync("JD.Writer is running for e2e tests", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 66
+#line 91
     await testRunner.WhenAsync("I open the studio home page", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 67
+#line 92
     await testRunner.AndAsync("I enable voice test mode", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 68
+#line 93
     await testRunner.AndAsync("I toggle voice capture from the toolbar", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 69
+#line 94
     await testRunner.ThenAsync("the voice toolbar button should contain \"Mic (On)\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
-#line 70
+#line 95
     await testRunner.WhenAsync("I toggle voice capture from the toolbar", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 71
+#line 96
     await testRunner.ThenAsync("the voice toolbar button should contain \"Mic (Off)\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
@@ -465,11 +594,11 @@ namespace JD.Writer.E2E.Features
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "8";
+            string pickleIndex = "11";
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Voice cleanup attempt is recorded in layer history", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
-#line 73
+#line 98
   this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -479,25 +608,25 @@ namespace JD.Writer.E2E.Features
             else
             {
                 await this.ScenarioStartAsync();
-#line 74
+#line 99
     await testRunner.GivenAsync("JD.Writer is running for e2e tests", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 75
+#line 100
     await testRunner.WhenAsync("I open the studio home page", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 76
+#line 101
     await testRunner.AndAsync("I enable voice test mode", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 77
+#line 102
     await testRunner.AndAsync("I place cursor at the end of the editor", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 78
+#line 103
     await testRunner.AndAsync("I toggle voice capture with keyboard", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 79
+#line 104
     await testRunner.AndAsync("I inject voice transcript \"voice cleanup should run\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 80
+#line 105
     await testRunner.ThenAsync("local state should include voice transcript and cleanup operations", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
@@ -505,160 +634,13 @@ namespace JD.Writer.E2E.Features
         }
         
         [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("System dark theme variables are applied")]
-        public async global::System.Threading.Tasks.Task SystemDarkThemeVariablesAreApplied()
-        {
-            string[] tagsOfScenario = ((string[])(null));
-            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "9";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("System dark theme variables are applied", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
-            string[] tagsOfRule = ((string[])(null));
-            global::Reqnroll.RuleInfo ruleInfo = null;
-#line 82
-  this.ScenarioInitialize(scenarioInfo, ruleInfo);
-#line hidden
-            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
-            {
-                await testRunner.SkipScenarioAsync();
-            }
-            else
-            {
-                await this.ScenarioStartAsync();
-#line 83
-    await testRunner.GivenAsync("JD.Writer is running for e2e tests", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
-#line hidden
-#line 84
-    await testRunner.WhenAsync("I open the studio home page", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
-#line hidden
-#line 85
-    await testRunner.AndAsync("I emulate dark color scheme", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
-#line hidden
-#line 86
-    await testRunner.ThenAsync("app background variable should be \"#070c16\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
-#line hidden
-            }
-            await this.ScenarioCleanupAsync();
-        }
-        
-        [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("Edit layers are persisted with diff and tone metrics")]
-        public async global::System.Threading.Tasks.Task EditLayersArePersistedWithDiffAndToneMetrics()
-        {
-            string[] tagsOfScenario = ((string[])(null));
-            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "10";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Edit layers are persisted with diff and tone metrics", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
-            string[] tagsOfRule = ((string[])(null));
-            global::Reqnroll.RuleInfo ruleInfo = null;
-#line 88
-  this.ScenarioInitialize(scenarioInfo, ruleInfo);
-#line hidden
-            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
-            {
-                await testRunner.SkipScenarioAsync();
-            }
-            else
-            {
-                await this.ScenarioStartAsync();
-#line 89
-    await testRunner.GivenAsync("JD.Writer is running for e2e tests", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
-#line hidden
-#line 90
-    await testRunner.WhenAsync("I open the studio home page", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
-#line hidden
-#line 91
-    await testRunner.AndAsync("I type \"# Layered Draft\\n\\n- checkpoint alpha\" in the editor", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
-#line hidden
-#line 92
-    await testRunner.ThenAsync("local state should contain note layers with diff and tone", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
-#line hidden
-#line 93
-    await testRunner.AndAsync("plugin panel \"History QC\" should be visible", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
-#line hidden
-            }
-            await this.ScenarioCleanupAsync();
-        }
-        
-        [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("Plugin panels are loaded from manifest")]
-        public async global::System.Threading.Tasks.Task PluginPanelsAreLoadedFromManifest()
-        {
-            string[] tagsOfScenario = ((string[])(null));
-            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "11";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Plugin panels are loaded from manifest", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
-            string[] tagsOfRule = ((string[])(null));
-            global::Reqnroll.RuleInfo ruleInfo = null;
-#line 95
-  this.ScenarioInitialize(scenarioInfo, ruleInfo);
-#line hidden
-            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
-            {
-                await testRunner.SkipScenarioAsync();
-            }
-            else
-            {
-                await this.ScenarioStartAsync();
-#line 96
-    await testRunner.GivenAsync("JD.Writer is running for e2e tests", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
-#line hidden
-#line 97
-    await testRunner.WhenAsync("I open the studio home page", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
-#line hidden
-#line 98
-    await testRunner.ThenAsync("plugin panel \"Risk Radar\" should be visible", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
-#line hidden
-#line 99
-    await testRunner.AndAsync("plugin panel \"Open Questions\" should be visible", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
-#line hidden
-            }
-            await this.ScenarioCleanupAsync();
-        }
-        
-        [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("API provider summary reports ollama preference")]
-        public async global::System.Threading.Tasks.Task APIProviderSummaryReportsOllamaPreference()
+        [global::NUnit.Framework.DescriptionAttribute("Voice recordings are reviewable in persisted audit logs")]
+        public async global::System.Threading.Tasks.Task VoiceRecordingsAreReviewableInPersistedAuditLogs()
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
             string pickleIndex = "12";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("API provider summary reports ollama preference", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
-            string[] tagsOfRule = ((string[])(null));
-            global::Reqnroll.RuleInfo ruleInfo = null;
-#line 101
-  this.ScenarioInitialize(scenarioInfo, ruleInfo);
-#line hidden
-            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
-            {
-                await testRunner.SkipScenarioAsync();
-            }
-            else
-            {
-                await this.ScenarioStartAsync();
-#line 102
-    await testRunner.GivenAsync("JD.Writer is running for e2e tests", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
-#line hidden
-#line 103
-    await testRunner.WhenAsync("I request API provider summary", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
-#line hidden
-#line 104
-    await testRunner.ThenAsync("provider preference should be \"ollama\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
-#line hidden
-#line 105
-    await testRunner.AndAsync("ollama should be configured", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
-#line hidden
-            }
-            await this.ScenarioCleanupAsync();
-        }
-        
-        [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("AI API continue and slash endpoints return content")]
-        public async global::System.Threading.Tasks.Task AIAPIContinueAndSlashEndpointsReturnContent()
-        {
-            string[] tagsOfScenario = ((string[])(null));
-            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "13";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("AI API continue and slash endpoints return content", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Voice recordings are reviewable in persisted audit logs", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
 #line 107
@@ -675,63 +657,44 @@ namespace JD.Writer.E2E.Features
     await testRunner.GivenAsync("JD.Writer is running for e2e tests", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
 #line 109
-    await testRunner.WhenAsync("I request continuation for \"# Plan\\n\\n- First idea\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+    await testRunner.WhenAsync("I open the studio home page", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
 #line 110
-    await testRunner.ThenAsync("continuation output should be returned", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+    await testRunner.AndAsync("I enable voice test mode", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
 #line 111
-    await testRunner.WhenAsync("I execute slash command \"summarize\" for \"# Draft\\n\\nThis is a long paragraph to c" +
-                        "ondense.\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+    await testRunner.AndAsync("I place cursor at the end of the editor", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
 #line 112
-    await testRunner.ThenAsync("slash command output should be returned", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+    await testRunner.AndAsync("I toggle voice capture with keyboard", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-            }
-            await this.ScenarioCleanupAsync();
-        }
-        
-        [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("Assist stream endpoint returns NDJSON chunks")]
-        public async global::System.Threading.Tasks.Task AssistStreamEndpointReturnsNDJSONChunks()
-        {
-            string[] tagsOfScenario = ((string[])(null));
-            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "14";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Assist stream endpoint returns NDJSON chunks", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
-            string[] tagsOfRule = ((string[])(null));
-            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 113
+    await testRunner.AndAsync("I inject interim voice transcript \"review log interim\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
 #line 114
-  this.ScenarioInitialize(scenarioInfo, ruleInfo);
+    await testRunner.AndAsync("I finalize voice transcript \"review log finalized payload\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
-            {
-                await testRunner.SkipScenarioAsync();
-            }
-            else
-            {
-                await this.ScenarioStartAsync();
 #line 115
-    await testRunner.GivenAsync("JD.Writer is running for e2e tests", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+    await testRunner.ThenAsync("plugin panel \"Voice Review\" should be visible", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
 #line 116
-    await testRunner.WhenAsync("I request assist stream for mode \"hints\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+    await testRunner.AndAsync("local state should include voice session transcript events", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
 #line 117
-    await testRunner.ThenAsync("assist stream should return at least 1 chunk", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+    await testRunner.AndAsync("voice review panel should contain \"review log finalized payload\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
             }
             await this.ScenarioCleanupAsync();
         }
         
         [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("Plugin prompt stream endpoint returns NDJSON chunks")]
-        public async global::System.Threading.Tasks.Task PluginPromptStreamEndpointReturnsNDJSONChunks()
+        [global::NUnit.Framework.DescriptionAttribute("System dark theme variables are applied")]
+        public async global::System.Threading.Tasks.Task SystemDarkThemeVariablesAreApplied()
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "15";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Plugin prompt stream endpoint returns NDJSON chunks", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string pickleIndex = "13";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("System dark theme variables are applied", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
 #line 119
@@ -748,10 +711,230 @@ namespace JD.Writer.E2E.Features
     await testRunner.GivenAsync("JD.Writer is running for e2e tests", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
 #line 121
+    await testRunner.WhenAsync("I open the studio home page", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 122
+    await testRunner.AndAsync("I emulate dark color scheme", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 123
+    await testRunner.ThenAsync("app background variable should be \"#070c16\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::NUnit.Framework.TestAttribute()]
+        [global::NUnit.Framework.DescriptionAttribute("Edit layers are persisted with diff and tone metrics")]
+        public async global::System.Threading.Tasks.Task EditLayersArePersistedWithDiffAndToneMetrics()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "14";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Edit layers are persisted with diff and tone metrics", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 125
+  this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 126
+    await testRunner.GivenAsync("JD.Writer is running for e2e tests", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line hidden
+#line 127
+    await testRunner.WhenAsync("I open the studio home page", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 128
+    await testRunner.AndAsync("I type \"# Layered Draft\\n\\n- checkpoint alpha\" in the editor", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 129
+    await testRunner.ThenAsync("local state should contain note layers with diff and tone", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+#line 130
+    await testRunner.AndAsync("plugin panel \"History QC\" should be visible", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::NUnit.Framework.TestAttribute()]
+        [global::NUnit.Framework.DescriptionAttribute("Plugin panels are loaded from manifest")]
+        public async global::System.Threading.Tasks.Task PluginPanelsAreLoadedFromManifest()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "15";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Plugin panels are loaded from manifest", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 132
+  this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 133
+    await testRunner.GivenAsync("JD.Writer is running for e2e tests", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line hidden
+#line 134
+    await testRunner.WhenAsync("I open the studio home page", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 135
+    await testRunner.ThenAsync("plugin panel \"Risk Radar\" should be visible", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+#line 136
+    await testRunner.AndAsync("plugin panel \"Open Questions\" should be visible", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::NUnit.Framework.TestAttribute()]
+        [global::NUnit.Framework.DescriptionAttribute("API provider summary reports ollama preference")]
+        public async global::System.Threading.Tasks.Task APIProviderSummaryReportsOllamaPreference()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "16";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("API provider summary reports ollama preference", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 138
+  this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 139
+    await testRunner.GivenAsync("JD.Writer is running for e2e tests", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line hidden
+#line 140
+    await testRunner.WhenAsync("I request API provider summary", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 141
+    await testRunner.ThenAsync("provider preference should be \"ollama\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+#line 142
+    await testRunner.AndAsync("ollama should be configured", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::NUnit.Framework.TestAttribute()]
+        [global::NUnit.Framework.DescriptionAttribute("AI API continue and slash endpoints return content")]
+        public async global::System.Threading.Tasks.Task AIAPIContinueAndSlashEndpointsReturnContent()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "17";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("AI API continue and slash endpoints return content", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 144
+  this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 145
+    await testRunner.GivenAsync("JD.Writer is running for e2e tests", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line hidden
+#line 146
+    await testRunner.WhenAsync("I request continuation for \"# Plan\\n\\n- First idea\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 147
+    await testRunner.ThenAsync("continuation output should be returned", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+#line 148
+    await testRunner.WhenAsync("I execute slash command \"summarize\" for \"# Draft\\n\\nThis is a long paragraph to c" +
+                        "ondense.\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 149
+    await testRunner.ThenAsync("slash command output should be returned", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::NUnit.Framework.TestAttribute()]
+        [global::NUnit.Framework.DescriptionAttribute("Assist stream endpoint returns NDJSON chunks")]
+        public async global::System.Threading.Tasks.Task AssistStreamEndpointReturnsNDJSONChunks()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "18";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Assist stream endpoint returns NDJSON chunks", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 151
+  this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 152
+    await testRunner.GivenAsync("JD.Writer is running for e2e tests", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line hidden
+#line 153
+    await testRunner.WhenAsync("I request assist stream for mode \"hints\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 154
+    await testRunner.ThenAsync("assist stream should return at least 1 chunk", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::NUnit.Framework.TestAttribute()]
+        [global::NUnit.Framework.DescriptionAttribute("Plugin prompt stream endpoint returns NDJSON chunks")]
+        public async global::System.Threading.Tasks.Task PluginPromptStreamEndpointReturnsNDJSONChunks()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "19";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Plugin prompt stream endpoint returns NDJSON chunks", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 156
+  this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 157
+    await testRunner.GivenAsync("JD.Writer is running for e2e tests", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line hidden
+#line 158
     await testRunner.WhenAsync("I request assist stream with custom prompt for mode \"plugin-risks\" and prompt \"Li" +
                         "st concise delivery risks and mitigations.\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 122
+#line 159
     await testRunner.ThenAsync("assist stream should return at least 1 chunk", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }

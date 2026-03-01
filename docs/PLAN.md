@@ -1,57 +1,59 @@
-# JD.Writer Plan
+# Product Roadmap
 
-## Product Goal
+This roadmap explains where JD.Writer is headed and how current architecture supports that path.
 
-Build a markdown workspace that is fast enough for capture and structured enough for serious iteration.
+## Product Direction
 
-The core promise is:
+JD.Writer is designed for high-speed markdown capture with structured AI-assisted iteration.
+
+Core principles:
 
 - local-first by default
-- server-capable when needed
-- graceful fallback when AI or network is unavailable
+- server-available when AI services are needed
+- deterministic fallback when providers are unavailable
 
-## v1 Architecture
+## Current Architecture (v1)
 
-### `JD.Writer.Web`
+## `JD.Writer.Web`
 
-- Primary workspace: note rail, editor, preview, side insights
-- Browser persistence (`localStorage`) for offline-safe drafts
-- Keyboard-first interactions (palette, slash commands, continue, voice toggle)
+- Primary authoring experience: note rail, editor, preview, and insight panels
+- Browser persistence for offline-safe drafts
+- Keyboard-first controls including command palette, slash commands, AI continue, and voice toggle
 
-### `JD.Writer.ApiService`
+## `JD.Writer.ApiService`
 
-- `/ai/continue`: append draft continuation
-- `/ai/assist/stream`: stream hints/help/brainstorm lines
-- `/ai/slash`: run slash transforms
-- Provider strategy: Ollama and Semantic Kernel/OpenAI with deterministic fallback
+- `/ai/continue` for continuation generation
+- `/ai/slash` for command-based transforms
+- `/ai/assist/stream` for NDJSON insight streaming
+- Provider routing across Ollama/Semantic Kernel/OpenAI with graceful fallback
 
-### `JD.Writer.AppHost`
+## `JD.Writer.AppHost`
 
-- Runs web + API together in local full-stack mode
-- Adds Aspire orchestration, discovery, and health checks
+- Local full-stack orchestration for web + API
+- Aspire-based discovery and health wiring
 
-## Milestones
+## Milestone Themes
 
-1. Foundation
-- Studio UX and local persistence
+1. Foundation (complete in v1 baseline)
+- Local-first studio
 - Markdown preview
-- AI continue and streamed sidebars
+- AI continue and streaming sidebars
 
 2. Extensibility
-- Plugin contracts for transforms and panel tools
-- Prompt profiles and pluggable commands
+- Plugin contracts for commands and panel tools
+- Expandable prompt and command profiles
 
-3. Reliability and sync
-- Optional server sync and conflict handling
-- Better operational telemetry and resilience budgets
+3. Reliability and Sync
+- Optional server sync and conflict strategy
+- Operational telemetry and resilience targets
 
-4. Voice and multimodal
-- Browser-first dictation
+4. Voice and Multimodal
+- Browser-first dictation pipeline
 - Optional transcription providers
-- Better transcript-to-markdown workflows
+- Better transcript cleanup and formatting workflows
 
-## Current Non-Goals
+## Explicit Non-Goals (v1)
 
 - Multi-user real-time collaboration
-- Enterprise permission model
-- Large-scale vector search/indexing
+- Enterprise IAM/permissions model
+- Large-scale vector index/search infrastructure

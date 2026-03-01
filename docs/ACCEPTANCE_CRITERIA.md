@@ -1,8 +1,8 @@
-# JD.Writer Acceptance Criteria (v1)
+# Acceptance Criteria (v1)
 
 Scope date: February 27, 2026
 
-This is the quality bar for the current release train.
+This document defines the functional quality bar for JD.Writer v1.
 
 ## Core Studio
 
@@ -22,7 +22,7 @@ This is the quality bar for the current release train.
 - AC-08: Side panels (Hints/Help/Brainstorm) stream insight items.
 - AC-09: Plugin-defined side panels load from plugin manifest and stream insight items.
 - AC-15: Voice capture can be toggled from the editor via keyboard (`Ctrl+M`) and toolbar.
-- AC-16: Finalized voice transcript inserts at the current cursor position and gets a best-effort cleanup pass.
+- AC-16: Interim voice transcript streams at the current cursor position with near-immediate feedback, and finalized transcript gets a best-effort cleanup pass.
 
 ## API and Provider Behavior
 
@@ -36,6 +36,7 @@ This is the quality bar for the current release train.
 
 - AC-17: Note edits are persisted as JSON layers with operation/source metadata, diff metrics, and tone metrics.
 - AC-18: History QC panel shows recent layer checkpoints and tone drift indicators for the active note.
+- AC-24: Voice capture sessions persist transcript/audit events (interim, finalized, inserted, cleanup outcomes) and are reviewable in a dedicated Voice Review panel.
 
 ## Theme and Readability
 

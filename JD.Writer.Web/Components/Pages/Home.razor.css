@@ -17,7 +17,11 @@
 }
 
 .studio-frame {
-    min-height: 100vh;
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
     padding: 2.2rem;
     background:
         radial-gradient(130rem 35rem at 10% -15%, rgba(54, 208, 208, 0.18), transparent 55%),
@@ -92,6 +96,160 @@
     backdrop-filter: blur(2px);
 }
 
+.status-pill.pending {
+    border-color: rgba(31, 116, 219, 0.45);
+    background: rgba(42, 122, 214, 0.14);
+    color: #123e71;
+}
+
+.inline-loader {
+    border: 2px solid rgba(16, 18, 31, 0.18);
+    border-radius: 999px;
+    border-top-color: currentColor;
+    display: inline-block;
+    flex: 0 0 auto;
+    height: 0.82rem;
+    width: 0.82rem;
+    animation: spin-loader 900ms linear infinite;
+}
+
+.skeleton-block {
+    --skeleton-delay: 0ms;
+    position: relative;
+    overflow: hidden;
+    border-radius: 0.42rem;
+    background: rgba(147, 166, 198, 0.34);
+    animation: skeleton-pulse 1.8s ease-in-out infinite;
+    animation-delay: var(--skeleton-delay);
+    will-change: opacity, filter;
+}
+
+.skeleton-block::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(102deg, transparent 10%, rgba(244, 249, 255, 0.9) 45%, transparent 78%);
+    transform: translateX(-130%);
+    animation: skeleton-wave 1.45s linear infinite;
+    animation-delay: var(--skeleton-delay);
+    will-change: transform;
+}
+
+.note-item.skeleton-card .skeleton-block:nth-child(1),
+.editor-toolbar-skeleton .skeleton-block:nth-child(1),
+.panel-loader .skeleton-block:nth-child(1),
+.slash-item.skeleton-row .skeleton-block:nth-child(1),
+.tool-window li.skeleton-row:nth-child(1) .skeleton-block {
+    --skeleton-delay: 40ms;
+}
+
+.note-item.skeleton-card .skeleton-block:nth-child(2),
+.editor-toolbar-skeleton .skeleton-block:nth-child(2),
+.panel-loader .skeleton-block:nth-child(2),
+.slash-item.skeleton-row .skeleton-block:nth-child(2),
+.tool-window li.skeleton-row:nth-child(2) .skeleton-block {
+    --skeleton-delay: 170ms;
+}
+
+.note-item.skeleton-card .skeleton-block:nth-child(3),
+.editor-toolbar-skeleton .skeleton-block:nth-child(3),
+.panel-loader .skeleton-block:nth-child(3),
+.tool-window li.skeleton-row:nth-child(3) .skeleton-block {
+    --skeleton-delay: 280ms;
+}
+
+.tool-window li.skeleton-row:nth-child(4) .skeleton-block {
+    --skeleton-delay: 380ms;
+}
+
+.skeleton-pane .skeleton-block:nth-child(odd) {
+    --skeleton-delay: 120ms;
+}
+
+.skeleton-pane .skeleton-block:nth-child(even) {
+    --skeleton-delay: 260ms;
+}
+
+.skeleton-line {
+    display: block;
+    height: 0.72rem;
+}
+
+.skeleton-title {
+    height: 1.2rem;
+    width: min(26rem, 58%);
+}
+
+.skeleton-chip {
+    height: 1.7rem;
+    width: 6.25rem;
+    border-radius: 999px;
+}
+
+.w-35 {
+    width: 35%;
+}
+
+.w-45 {
+    width: 45%;
+}
+
+.w-55 {
+    width: 55%;
+}
+
+.w-60 {
+    width: 60%;
+}
+
+.w-66 {
+    width: 66%;
+}
+
+.w-70 {
+    width: 70%;
+}
+
+.w-72 {
+    width: 72%;
+}
+
+.w-75 {
+    width: 75%;
+}
+
+.w-80 {
+    width: 80%;
+}
+
+.w-82 {
+    width: 82%;
+}
+
+.w-84 {
+    width: 84%;
+}
+
+.w-85 {
+    width: 85%;
+}
+
+.w-88 {
+    width: 88%;
+}
+
+.w-90 {
+    width: 90%;
+}
+
+.w-92 {
+    width: 92%;
+}
+
+.w-95 {
+    width: 95%;
+}
+
 .icon-pill {
     height: 0.9rem;
     width: 0.9rem;
@@ -121,7 +279,9 @@
     display: grid;
     grid-template-columns: 17rem minmax(0, 1fr) 21rem;
     gap: 1rem;
-    min-height: calc(100vh - 10.5rem);
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
 }
 
 .note-rail,
@@ -137,6 +297,7 @@
 .note-rail {
     display: flex;
     flex-direction: column;
+    min-height: 0;
     overflow: hidden;
 }
 
@@ -261,10 +422,24 @@ button {
 }
 
 .note-list {
-    display: grid;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
     gap: 0.5rem;
+    min-height: 0;
     overflow-y: auto;
+    overscroll-behavior: contain;
     padding: 0.75rem;
+    scrollbar-gutter: stable;
+}
+
+.list-empty {
+    margin: 0;
+    padding: 0.9rem 0.72rem;
+    border-radius: 0.68rem;
+    border: 1px dashed rgba(16, 18, 31, 0.22);
+    color: #4f5f7d;
+    font-size: 0.83rem;
 }
 
 .note-item {
@@ -273,26 +448,45 @@ button {
     background: rgba(249, 251, 255, 0.92);
     border-radius: 0.75rem;
     padding: 0.65rem 0.72rem;
-    display: grid;
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: column;
+    justify-content: flex-start;
+    min-height: 5.35rem;
     gap: 0.25rem;
     cursor: pointer;
     transition: border-color 170ms ease, background-color 170ms ease, transform 130ms ease;
 }
 
+.note-item.skeleton-card {
+    cursor: default;
+    border-style: dashed;
+    gap: 0.42rem;
+    pointer-events: none;
+}
+
 .note-item strong {
     font-size: 0.88rem;
+    line-height: 1.2;
 }
 
 .note-item span {
+    display: -webkit-box;
     font-size: 0.82rem;
     line-height: 1.34;
     color: #4b5870;
+    max-height: calc(2 * 1.34em);
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
 }
 
 .note-item time {
     align-items: center;
     display: inline-flex;
     gap: 0.25rem;
+    margin-top: auto;
     font-size: 0.78rem;
     color: #5f6d86;
     text-transform: uppercase;
@@ -318,7 +512,9 @@ button {
 .editor-pane {
     display: flex;
     flex-direction: column;
+    min-height: 0;
     min-width: 0;
+    overflow: hidden;
 }
 
 .editor-toolbar {
@@ -329,6 +525,42 @@ button {
     padding: 0.95rem;
     border-bottom: 1px solid rgba(16, 18, 31, 0.08);
     flex-wrap: wrap;
+}
+
+.editor-loading-state {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.editor-toolbar-skeleton {
+    align-items: center;
+    border-bottom: 1px solid rgba(16, 18, 31, 0.08);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    padding: 0.95rem;
+}
+
+.editor-surface-skeleton {
+    display: grid;
+    flex: 1;
+    gap: 0;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.96fr);
+    min-height: 0;
+}
+
+.skeleton-pane {
+    display: flex;
+    flex-direction: column;
+    gap: 0.58rem;
+    min-height: 0;
+    padding: 0.95rem;
+}
+
+.skeleton-pane:first-child {
+    border-right: 1px solid rgba(16, 18, 31, 0.08);
 }
 
 .title-input {
@@ -354,6 +586,7 @@ button {
     min-height: 0;
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 0.96fr);
+    overflow: hidden;
 }
 
 .editor-panel,
@@ -362,6 +595,8 @@ button {
     flex-direction: column;
     min-width: 0;
     min-height: 0;
+    overflow: hidden;
+    position: relative;
     padding: 0.95rem;
 }
 
@@ -444,7 +679,7 @@ button {
 
 .editor-input {
     flex: 1;
-    min-height: 16rem;
+    min-height: 0;
     width: 100%;
     resize: none;
     border: 1px solid rgba(30, 35, 64, 0.14);
@@ -484,6 +719,35 @@ button {
     padding: 1.05rem;
     line-height: 1.6;
     color: var(--preview-ink);
+}
+
+.preview-shell {
+    flex: 1;
+    min-height: 0;
+    position: relative;
+}
+
+.activity-running .editor-input,
+.activity-running .preview-content {
+    opacity: 0.45;
+}
+
+.panel-loader {
+    align-items: flex-start;
+    backdrop-filter: blur(1px);
+    background: linear-gradient(180deg, rgba(247, 250, 255, 0.8), rgba(247, 250, 255, 0.56));
+    border-radius: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.52rem;
+    inset: 2.7rem 0.95rem 0.95rem 0.95rem;
+    justify-content: center;
+    pointer-events: none;
+    position: absolute;
+}
+
+.panel-loader.preview-loader {
+    inset: 3.4rem 0 0 0;
 }
 
 .preview-content :is(p, ul, ol, blockquote, pre, table) {
@@ -674,8 +938,13 @@ button {
 .assistant-rail {
     display: grid;
     gap: 0.75rem;
+    min-height: 0;
     padding: 0.85rem;
-    overflow: auto;
+    overflow-y: auto;
+}
+
+.skeleton-window {
+    pointer-events: none;
 }
 
 .tool-window {
@@ -717,6 +986,12 @@ button {
     color: #273552;
     font-size: 0.88rem;
     line-height: 1.42;
+    overflow-wrap: anywhere;
+}
+
+.tool-window li.skeleton-row {
+    list-style: none;
+    margin-left: -0.6rem;
 }
 
 .editor-command-row {
@@ -745,6 +1020,11 @@ button {
     padding: 0.5rem;
 }
 
+.slash-popover.is-loading {
+    border-color: rgba(30, 114, 217, 0.32);
+    background: rgba(245, 249, 255, 0.95);
+}
+
 .slash-item {
     align-items: flex-start;
     background: rgba(249, 251, 255, 0.95);
@@ -769,6 +1049,11 @@ button {
 .slash-item span {
     color: #546482;
     font-size: 0.82rem;
+}
+
+.slash-item.skeleton-row {
+    cursor: default;
+    pointer-events: none;
 }
 
 .palette-backdrop {
@@ -888,6 +1173,35 @@ button {
     }
 }
 
+@keyframes skeleton-wave {
+    0% {
+        transform: translateX(-130%);
+    }
+
+    100% {
+        transform: translateX(140%);
+    }
+}
+
+@keyframes skeleton-pulse {
+    0%,
+    100% {
+        opacity: 0.7;
+        filter: saturate(0.92);
+    }
+
+    50% {
+        opacity: 0.98;
+        filter: saturate(1.1);
+    }
+}
+
+@keyframes spin-loader {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
 @media (max-width: 1180px) {
     .studio-grid {
         grid-template-columns: 14.5rem minmax(0, 1fr);
@@ -915,10 +1229,20 @@ button {
 
     .studio-grid {
         grid-template-columns: 1fr;
+        overflow-y: auto;
     }
 
     .editor-surface {
         grid-template-columns: 1fr;
+    }
+
+    .editor-surface-skeleton {
+        grid-template-columns: 1fr;
+    }
+
+    .skeleton-pane:first-child {
+        border-right: 0;
+        border-bottom: 1px solid rgba(16, 18, 31, 0.08);
     }
 
     .editor-panel {
@@ -1056,6 +1380,40 @@ button {
         box-shadow: 0 1px 0 rgba(200, 224, 255, 0.08) inset;
     }
 
+    .status-pill.pending {
+        color: #d8ebff;
+        border-color: rgba(98, 171, 255, 0.55);
+        background: rgba(44, 98, 168, 0.36);
+    }
+
+    .inline-loader {
+        border-color: rgba(219, 230, 255, 0.28);
+        border-top-color: currentColor;
+    }
+
+    .skeleton-block {
+        background: rgba(95, 126, 175, 0.36);
+    }
+
+    .skeleton-block::after {
+        background: linear-gradient(102deg, transparent 12%, rgba(177, 211, 255, 0.52) 45%, transparent 78%);
+    }
+
+    .list-empty {
+        border-color: rgba(137, 164, 209, 0.4);
+        color: #a4bce2;
+        background: rgba(11, 22, 39, 0.55);
+    }
+
+    .panel-loader {
+        background: linear-gradient(180deg, rgba(8, 16, 29, 0.74), rgba(8, 16, 29, 0.48));
+    }
+
+    .slash-popover.is-loading {
+        border-color: rgba(120, 178, 255, 0.42);
+        background: rgba(12, 24, 42, 0.92);
+    }
+
     .note-item.active,
     .palette-item.active,
     .palette-item:hover,
@@ -1068,6 +1426,10 @@ button {
     .preview-content.preview-theme-studio {
         border-color: rgba(137, 164, 209, 0.3);
         background: rgba(12, 24, 41, 0.92);
+    }
+
+    .skeleton-pane:first-child {
+        border-color: rgba(137, 164, 209, 0.2);
     }
 
     .preview-content.preview-theme-studio {
@@ -1116,6 +1478,7 @@ button {
     .note-rail,
     .editor-pane,
     .assistant-rail,
+    .list-empty,
     .tool-window,
     .command-palette,
     .note-item,
@@ -1130,11 +1493,23 @@ button {
     .ghost-button,
     .danger-button,
     .solid-button,
-    .hint-chip {
+    .hint-chip,
+    .panel-loader {
         background: Canvas !important;
         color: CanvasText !important;
         border-color: CanvasText !important;
         forced-color-adjust: auto;
+    }
+
+    .skeleton-block,
+    .inline-loader {
+        background: CanvasText !important;
+        border-color: CanvasText !important;
+        animation: none !important;
+    }
+
+    .skeleton-block::after {
+        content: none !important;
     }
 
     .ghost-button:focus-visible,

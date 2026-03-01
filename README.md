@@ -21,6 +21,7 @@ JD.Writer aims to give you both:
 - markdown-first output
 - AI assist when available
 - useful local fallback when AI is offline
+- persisted voice transcription audit trails for review/QC
 
 ## Solution Layout
 
@@ -94,15 +95,19 @@ Default values live in `JD.Writer.ApiService/appsettings.json`.
 Primary docs are in [`docs/`](docs):
 
 - [Docs Home](docs/index.md)
-- [Plan](docs/PLAN.md)
-- [TODO](docs/TODO.md)
-- [Swarm](docs/SWARM.md)
+- [Getting Started Guide](docs/GETTING_STARTED.md)
+- [User Guide](docs/USER_GUIDE.md)
+- [API Guide](docs/API_DOCS.md)
+- [API Reference](docs/api/index.md)
+- [Product Roadmap](docs/PLAN.md)
+- [Delivery Backlog](docs/TODO.md)
+- [Delivery Model](docs/SWARM.md)
 - [Acceptance Criteria](docs/ACCEPTANCE_CRITERIA.md)
 - [Spec Coverage](docs/SPEC_COVERAGE.md)
-- [E2E Notes](docs/E2E.md)
+- [End-to-End Testing Guide](docs/E2E.md)
 - [Accessibility Audit](docs/ACCESSIBILITY_AUDIT.md)
-- [Release Models](docs/RELEASE_MODELS.md)
-- [Git Ready Checklist](docs/GIT_READY_CHECKLIST.md)
+- [Release Models Guide](docs/RELEASE_MODELS.md)
+- [Repository Publishing Guide](docs/GIT_READY_CHECKLIST.md)
 - [Studio Lite (GitHub Pages)](docs/studio/index.html)
 
 ## GitHub Pages
@@ -114,7 +119,7 @@ DocFX publishes docs and Studio Lite.
 
 ## Publishing This Repo To GitHub
 
-If this local folder is brand new, follow the checklist in [docs/GIT_READY_CHECKLIST.md](docs/GIT_READY_CHECKLIST.md).
+If this local folder is brand new, follow the [Repository Publishing Guide](docs/GIT_READY_CHECKLIST.md).
 
 Minimal flow:
 

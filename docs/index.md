@@ -1,27 +1,40 @@
-# JD.Writer Docs
+# JD.Writer Documentation
 
-Welcome to the project docs.
+JD.Writer is a local-first markdown studio with optional API-backed AI workflows.
 
-If you are new here, start with:
+Use this documentation by outcome:
 
-1. [Plan](PLAN.md)
-2. [Acceptance Criteria](ACCEPTANCE_CRITERIA.md)
-3. [Spec Coverage](SPEC_COVERAGE.md)
-4. [Release Models](RELEASE_MODELS.md)
+## Start Here
 
-If you are preparing to publish or hand off the repo, use:
+1. [Getting Started Guide](GETTING_STARTED.md)
+2. [User Guide](USER_GUIDE.md)
+3. [Release Models Guide](RELEASE_MODELS.md)
 
-- [Git Ready Checklist](GIT_READY_CHECKLIST.md)
+## Guides
 
-Full document list:
+- [Getting Started Guide](GETTING_STARTED.md)
+- [User Guide](USER_GUIDE.md)
+- [Release Models Guide](RELEASE_MODELS.md)
+- [Repository Publishing Guide](GIT_READY_CHECKLIST.md)
 
-- [Plan](PLAN.md)
-- [TODO](TODO.md)
-- [Swarm](SWARM.md)
+## API Docs
+
+- [API Guide](API_DOCS.md)
+- [Generated API Reference](api/index.md)
+
+## Quality and Validation
+
 - [Acceptance Criteria](ACCEPTANCE_CRITERIA.md)
-- [Spec Coverage](SPEC_COVERAGE.md)
-- [E2E](E2E.md)
+- [Spec Coverage Matrix](SPEC_COVERAGE.md)
+- [End-to-End Testing Guide](E2E.md)
 - [Accessibility Audit](ACCESSIBILITY_AUDIT.md)
-- [Release Models](RELEASE_MODELS.md)
-- [Git Ready Checklist](GIT_READY_CHECKLIST.md)
+
+## Product and Engineering Reference
+
+- [Product Roadmap](PLAN.md)
+- [Delivery Backlog](TODO.md)
+- [Delivery Model](SWARM.md)
+
+## Browser Demo
+
 - [Studio Lite (GitHub Pages)](studio/index.html)

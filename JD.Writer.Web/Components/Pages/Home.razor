@@ -40,6 +40,13 @@
                 </svg>
                 Voice: @(_isVoiceRecording ? "Recording" : "Ready")
             </span>
+            @if (!string.IsNullOrWhiteSpace(WorkingLabel))
+            {
+                <span class="status-pill pending" role="status" aria-live="polite">
+                    <span class="inline-loader" aria-hidden="true"></span>
+                    @WorkingLabel
+                </span>
+            }
             <span class="status-pill" role="status" aria-live="polite">@_statusMessage</span>
             <span class="status-pill">
                 <svg class="icon icon-pill key" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -68,24 +75,72 @@
                 </button>
             </div>
             <div class="note-list">
-                @foreach (var note in FilteredNotes)
+                @{
+                    var filteredNotes = FilteredNotes.ToList();
+                }
+                @if (ShowWorkspaceSkeleton)
                 {
-                    <button class="note-item @(note.Id == _activeNoteId ? "active" : string.Empty)" @onclick="() => SelectNote(note.Id)">
-                        <strong>@note.Title</strong>
-                        <span>@FormatPreview(note.Content)</span>
-                        <time>
-                            <svg class="icon icon-meta time" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                                <path d="M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18Zm0 2a7 7 0 1 0 0 14 7 7 0 0 0 0-14Zm1 3v4.6l3 1.7-1 1.7-4-2.3V8h2Z" />
-                            </svg>
-                            @note.UpdatedAt.ToLocalTime().ToString("MMM d h:mm tt")
-                        </time>
-                    </button>
+                    @for (var i = 0; i < 6; i++)
+                    {
+                        <div class="note-item skeleton-card" aria-hidden="true">
+                            <span class="skeleton-block skeleton-line w-70"></span>
+                            <span class="skeleton-block skeleton-line w-90"></span>
+                            <span class="skeleton-block skeleton-line w-45"></span>
+                        </div>
+                    }
+                }
+                else if (filteredNotes.Count == 0)
+                {
+                    <p class="list-empty">No notes matched your search.</p>
+                }
+                else
+                {
+                    @foreach (var note in filteredNotes)
+                    {
+                        <button class="note-item @(note.Id == _activeNoteId ? "active" : string.Empty)" @onclick="() => SelectNote(note.Id)">
+                            <strong>@note.Title</strong>
+                            <span>@FormatPreview(note.Content)</span>
+                            <time>
+                                <svg class="icon icon-meta time" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                    <path d="M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18Zm0 2a7 7 0 1 0 0 14 7 7 0 0 0 0-14Zm1 3v4.6l3 1.7-1 1.7-4-2.3V8h2Z" />
+                                </svg>
+                                @note.UpdatedAt.ToLocalTime().ToString("MMM d h:mm tt")
+                            </time>
+                        </button>
+                    }
                 }
             </div>
         </aside>
 
         <main class="editor-pane">
-            @if (ActiveNote is null)
+            @if (ShowWorkspaceSkeleton)
+            {
+                <div class="editor-loading-state" role="status" aria-live="polite">
+                    <div class="editor-toolbar-skeleton" aria-hidden="true">
+                        <span class="skeleton-block skeleton-title"></span>
+                        <span class="skeleton-block skeleton-chip"></span>
+                        <span class="skeleton-block skeleton-chip"></span>
+                        <span class="skeleton-block skeleton-chip"></span>
+                    </div>
+                    <div class="editor-surface-skeleton" aria-hidden="true">
+                        <div class="skeleton-pane">
+                            <span class="skeleton-block skeleton-line w-35"></span>
+                            <span class="skeleton-block skeleton-line w-95"></span>
+                            <span class="skeleton-block skeleton-line w-88"></span>
+                            <span class="skeleton-block skeleton-line w-92"></span>
+                            <span class="skeleton-block skeleton-line w-75"></span>
+                        </div>
+                        <div class="skeleton-pane">
+                            <span class="skeleton-block skeleton-line w-35"></span>
+                            <span class="skeleton-block skeleton-line w-90"></span>
+                            <span class="skeleton-block skeleton-line w-82"></span>
+                            <span class="skeleton-block skeleton-line w-94"></span>
+                            <span class="skeleton-block skeleton-line w-72"></span>
+                        </div>
+                    </div>
+                </div>
+            }
+            else if (ActiveNote is null)
             {
                 <div class="empty-state">
                     <h2>Create your first note</h2>
@@ -101,7 +156,7 @@
             {
                 <div class="editor-toolbar">
                     <label class="visually-hidden" for="note-title-input">Note title</label>
-                    <input id="note-title-input" class="title-input" value="@ActiveNote.Title" @oninput="HandleTitleInput" placeholder="Untitled note" />
+                    <input id="note-title-input" class="title-input" value="@ActiveNote.Title" @oninput="HandleTitleInput" placeholder="Untitled note" disabled="@ShowEditorActivity" />
                     <div class="toolbar-actions">
                         <button class="ghost-button" @onclick="OpenPaletteAsync">
                             <svg class="icon icon-button palette" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -109,23 +164,39 @@
                             </svg>
                             Palette
                         </button>
-                        <button class="ghost-button" @onclick="RefreshAssistantPanelsAsync">
-                            <svg class="icon icon-button refresh" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                                <path d="M20 4v6h-6l2.3-2.3A6 6 0 1 0 18 13a1 1 0 1 1 2 0 8 8 0 1 1-2.8-6.1L20 4Z" />
-                            </svg>
-                            Refresh
+                        <button class="ghost-button" @onclick="@(() => RefreshAssistantPanelsAsync(force: true))" disabled="@_isRefreshingInsights">
+                            @if (_isRefreshingInsights)
+                            {
+                                <span class="inline-loader" aria-hidden="true"></span>
+                                <span>Refreshing...</span>
+                            }
+                            else
+                            {
+                                <svg class="icon icon-button refresh" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                    <path d="M20 4v6h-6l2.3-2.3A6 6 0 1 0 18 13a1 1 0 1 1 2 0 8 8 0 1 1-2.8-6.1L20 4Z" />
+                                </svg>
+                                <span>Refresh</span>
+                            }
                         </button>
                         <button class="ghost-button @(_isVoiceRecording ? "recording" : string.Empty)" @onclick="ToggleVoiceCaptureAsync">
                             <svg class="icon icon-button voice" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                                 <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3Zm5-3a1 1 0 1 1 2 0 7 7 0 0 1-6 6.9V21h3a1 1 0 1 1 0 2H8a1 1 0 0 1 0-2h3v-3.1A7 7 0 0 1 5 11a1 1 0 1 1 2 0 5 5 0 0 0 10 0Z" />
                             </svg>
-                            Mic (@(_isVoiceRecording ? "On" : "Off"))
+                            <span>Mic (@(_isVoiceRecording ? "On" : "Off"))</span>
                         </button>
-                        <button class="ghost-button" @onclick="ContinueWithAiAsync" disabled="@_isBusy">
-                            <svg class="icon icon-button ai" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                                <path d="M12 2a3 3 0 0 0-3 3v1.1A6 6 0 0 0 6.1 9H5a3 3 0 0 0 0 6h1.1A6 6 0 0 0 9 17.9V19a3 3 0 1 0 6 0v-1.1a6 6 0 0 0 2.9-2.9H19a3 3 0 1 0 0-6h-1.1A6 6 0 0 0 15 6.1V5a3 3 0 0 0-3-3Z" />
-                            </svg>
-                            AI Continue
+                        <button class="ghost-button" @onclick="ContinueWithAiAsync" disabled="@(_isBusy || _isApplyingSlash)">
+                            @if (_isBusy)
+                            {
+                                <span class="inline-loader" aria-hidden="true"></span>
+                                <span>Generating...</span>
+                            }
+                            else
+                            {
+                                <svg class="icon icon-button ai" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                    <path d="M12 2a3 3 0 0 0-3 3v1.1A6 6 0 0 0 6.1 9H5a3 3 0 0 0 0 6h1.1A6 6 0 0 0 9 17.9V19a3 3 0 1 0 6 0v-1.1a6 6 0 0 0 2.9-2.9H19a3 3 0 1 0 0-6h-1.1A6 6 0 0 0 15 6.1V5a3 3 0 0 0-3-3Z" />
+                                </svg>
+                                <span>AI Continue</span>
+                            }
                         </button>
                         <button class="ghost-button" @onclick="DownloadActiveNoteAsync">
                             <svg class="icon icon-button export" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -137,7 +208,7 @@
                 </div>
 
                 <div class="editor-surface">
-                    <div class="editor-panel">
+                    <div class="editor-panel @(ShowEditorActivity ? "activity-running" : string.Empty)" aria-busy="@ShowEditorActivity">
                         <label for="note-draft-input">
                             <svg class="icon icon-label draft" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                                 <path d="M4 19.5V22h2.5L17.1 11.4l-2.5-2.5L4 19.5Zm15.7-9.3c.4-.4.4-1 0-1.4l-1.5-1.5c-.4-.4-1-.4-1.4 0l-1.2 1.2 2.5 2.5 1.6-1.8Z" />
@@ -150,6 +221,7 @@
                                   value="@ActiveNote.Content"
                                   @oninput="HandleDraftInput"
                                   @onkeydown="HandleEditorKeyDown"
+                                  disabled="@ShowEditorActivity"
                                   placeholder="Start typing markdown..."></textarea>
 
                         <div class="editor-command-row">
@@ -165,21 +237,37 @@
                             <span class="editor-hint">`/` slash command, `Ctrl+K` palette, `Ctrl+J` continue, `Ctrl+M` voice</span>
                         </div>
 
-                        @if (_slashSuggestions.Count > 0)
+                        @if (_slashSuggestions.Count > 0 || _isApplyingSlash)
                         {
-                            <div class="slash-popover">
+                            <div class="slash-popover @(_isApplyingSlash ? "is-loading" : string.Empty)" aria-busy="@_isApplyingSlash">
+                                @if (_isApplyingSlash)
+                                {
+                                    <div class="slash-item skeleton-row" aria-hidden="true">
+                                        <span class="skeleton-block skeleton-line w-55"></span>
+                                        <span class="skeleton-block skeleton-line w-80"></span>
+                                    </div>
+                                }
                                 @foreach (var command in _slashSuggestions)
                                 {
-                                    <button class="slash-item" @onclick="() => ApplySlashCommandAsync(command)">
+                                    <button class="slash-item" @onclick="() => ApplySlashCommandAsync(command)" disabled="@_isApplyingSlash">
                                         <strong>/@command.Name</strong>
                                         <span>@command.Description</span>
                                     </button>
                                 }
                             </div>
                         }
+
+                        @if (ShowEditorActivity)
+                        {
+                            <div class="panel-loader" role="status" aria-live="polite">
+                                <span class="skeleton-block skeleton-line w-70"></span>
+                                <span class="skeleton-block skeleton-line w-85"></span>
+                                <span class="skeleton-block skeleton-line w-60"></span>
+                            </div>
+                        }
                     </div>
 
-                    <div class="preview-panel">
+                    <div class="preview-panel @(ShowEditorActivity ? "activity-running" : string.Empty)" aria-busy="@ShowEditorActivity">
                         <div class="preview-head">
                             <p class="preview-label">
                                 <svg class="icon icon-label preview" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -205,27 +293,74 @@
                                 </select>
                             </label>
                         </div>
-                        <article class="preview-content preview-theme-@_previewTheme" data-testid="preview-content">@((MarkupString)RenderMarkdown(ActiveNote.Content))</article>
+                        <div class="preview-shell">
+                            <article class="preview-content preview-theme-@_previewTheme" data-testid="preview-content">@((MarkupString)RenderMarkdown(ActiveNote.Content))</article>
+                            @if (ShowEditorActivity)
+                            {
+                                <div class="panel-loader preview-loader" role="status" aria-live="polite">
+                                    <span class="skeleton-block skeleton-line w-72"></span>
+                                    <span class="skeleton-block skeleton-line w-90"></span>
+                                    <span class="skeleton-block skeleton-line w-84"></span>
+                                    <span class="skeleton-block skeleton-line w-66"></span>
+                                </div>
+                            }
+                        </div>
                     </div>
                 </div>
             }
         </main>
 
         <aside class="assistant-rail">
-            @foreach (var panel in AllPanels)
+            @if (ShowWorkspaceSkeleton)
             {
-                <section class="tool-window">
-                    <header>
-                        <h2>@panel.Title</h2>
-                        <small>@panel.Description</small>
-                    </header>
-                    <ul>
-                        @foreach (var item in panel.Items)
-                        {
-                            <li>@item</li>
-                        }
-                    </ul>
-                </section>
+                @for (var panelIndex = 0; panelIndex < 4; panelIndex++)
+                {
+                    <section class="tool-window skeleton-window" aria-hidden="true">
+                        <header>
+                            <span class="skeleton-block skeleton-line w-55"></span>
+                            <span class="skeleton-block skeleton-line w-85"></span>
+                        </header>
+                        <ul>
+                            @for (var row = 0; row < 4; row++)
+                            {
+                                <li class="skeleton-row">
+                                    <span class="skeleton-block skeleton-line w-95"></span>
+                                </li>
+                            }
+                        </ul>
+                    </section>
+                }
+            }
+            else
+            {
+                @foreach (var panel in AllPanels)
+                {
+                    var showPanelSkeleton = ShowInsightsSkeleton && panel.Items.Count == 0;
+                    <section class="tool-window" aria-busy="@showPanelSkeleton">
+                        <header>
+                            <h2>@panel.Title</h2>
+                            <small>@panel.Description</small>
+                        </header>
+                        <ul>
+                            @if (showPanelSkeleton)
+                            {
+                                @for (var row = 0; row < 4; row++)
+                                {
+                                    <li class="skeleton-row" aria-hidden="true">
+                                        <span class="skeleton-block skeleton-line w-95"></span>
+                                    </li>
+                                }
+                            }
+                            else
+                            {
+                                @foreach (var item in panel.Items)
+                                {
+                                    <li>@item</li>
+                                }
+                            }
+                        </ul>
+                    </section>
+                }
             }
         </aside>
     </section>

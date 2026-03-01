@@ -8,7 +8,13 @@ builder.AddServiceDefaults();
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents();
+    .AddInteractiveServerComponents()
+    .AddHubOptions(options =>
+    {
+        // Local-first state payloads can exceed the default SignalR message limit.
+        // Raise the cap so large persisted note/layer state doesn't kill the circuit on load.
+        options.MaximumReceiveMessageSize = 8 * 1024 * 1024;
+    });
 
 builder.Services.AddOutputCache();
 
