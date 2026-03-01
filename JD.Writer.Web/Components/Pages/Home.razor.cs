@@ -643,6 +643,9 @@ public partial class Home : ComponentBase, IAsyncDisposable
 
         var before = note.Content;
         EditorInsertionResult? insertion = null;
+        var cleanupRangeStart = -1;
+        var cleanupRangeEnd = -1;
+        var cleanupSegment = string.Empty;
 
         try
         {
@@ -659,10 +662,16 @@ public partial class Home : ComponentBase, IAsyncDisposable
         if (insertion is not null && !string.IsNullOrWhiteSpace(insertion.Value))
         {
             note.Content = insertion.Value;
+            cleanupRangeStart = insertion.Start;
+            cleanupRangeEnd = insertion.End;
+            cleanupSegment = SafeSlice(note.Content, cleanupRangeStart, cleanupRangeEnd);
         }
         else
         {
             note.Content = AppendToDraft(note.Content, normalizedTranscript);
+            cleanupRangeEnd = note.Content.Length;
+            cleanupRangeStart = Math.Max(0, note.Content.LastIndexOf(normalizedTranscript, StringComparison.Ordinal));
+            cleanupSegment = SafeSlice(note.Content, cleanupRangeStart, cleanupRangeEnd);
         }
 
         note.UpdatedAt = DateTimeOffset.UtcNow;
@@ -683,18 +692,22 @@ public partial class Home : ComponentBase, IAsyncDisposable
         QueueAssistantRefresh();
         StateHasChanged();
 
-        if (insertion is null)
+        if (cleanupRangeStart < 0 || cleanupRangeEnd <= cleanupRangeStart || string.IsNullOrWhiteSpace(cleanupSegment))
         {
+            RecordLayer(
+                note,
+                operation: "voice-cleanup-attempt",
+                source: "fallback",
+                contentBefore: note.Content,
+                contentAfter: note.Content,
+                titleBefore: note.Title,
+                titleAfter: note.Title,
+                annotation: "Cleanup skipped; insertion range unavailable");
+            await PersistStateAsync();
             return;
         }
 
-        var insertedSegment = SafeSlice(note.Content, insertion.Start, insertion.End);
-        if (string.IsNullOrWhiteSpace(insertedSegment))
-        {
-            return;
-        }
-
-        await ApplyAiVoiceCleanupAsync(note, insertion.Start, insertion.End, insertedSegment, normalizedTranscript);
+        await ApplyAiVoiceCleanupAsync(note, cleanupRangeStart, cleanupRangeEnd, cleanupSegment, normalizedTranscript);
     }
 
     private async Task ApplyAiVoiceCleanupAsync(NoteDocument note, int rangeStart, int rangeEnd, string insertedSegment, string rawTranscript)

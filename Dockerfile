@@ -11,6 +11,7 @@ COPY ["JD.Writer.Web/JD.Writer.Web.csproj", "JD.Writer.Web/"]
 COPY ["JD.Writer.ApiService/JD.Writer.ApiService.csproj", "JD.Writer.ApiService/"]
 COPY ["JD.Writer.ServiceDefaults/JD.Writer.ServiceDefaults.csproj", "JD.Writer.ServiceDefaults/"]
 COPY ["JD.Writer.AppHost/JD.Writer.AppHost.csproj", "JD.Writer.AppHost/"]
+COPY ["JD.Writer.E2E/JD.Writer.E2E.csproj", "JD.Writer.E2E/"]
 
 RUN dotnet restore JD.Writer.sln
 

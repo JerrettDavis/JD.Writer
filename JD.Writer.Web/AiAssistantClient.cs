@@ -6,6 +6,9 @@ namespace JD.Writer.Web;
 
 public sealed class AiAssistantClient
 {
+    private static readonly TimeSpan RemoteContinueTimeout = TimeSpan.FromSeconds(12);
+    private static readonly TimeSpan RemoteSlashTimeout = TimeSpan.FromSeconds(12);
+    private static readonly TimeSpan RemoteStreamTimeout = TimeSpan.FromSeconds(15);
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly HttpClient _httpClient;
@@ -30,9 +33,10 @@ public sealed class AiAssistantClient
 
         try
         {
-            using var response = await _httpClient.PostAsJsonAsync("/ai/continue", request, cancellationToken);
+            using var linkedCts = CreateLinkedTimeoutTokenSource(cancellationToken, RemoteContinueTimeout);
+            using var response = await _httpClient.PostAsJsonAsync("/ai/continue", request, linkedCts.Token);
             response.EnsureSuccessStatusCode();
-            var payload = await response.Content.ReadFromJsonAsync<ContinueDraftResponse>(JsonOptions, cancellationToken);
+            var payload = await response.Content.ReadFromJsonAsync<ContinueDraftResponse>(JsonOptions, linkedCts.Token);
             if (payload is not null)
             {
                 return payload;
@@ -98,9 +102,10 @@ public sealed class AiAssistantClient
 
         try
         {
-            using var response = await _httpClient.PostAsJsonAsync("/ai/slash", request, cancellationToken);
+            using var linkedCts = CreateLinkedTimeoutTokenSource(cancellationToken, RemoteSlashTimeout);
+            using var response = await _httpClient.PostAsJsonAsync("/ai/slash", request, linkedCts.Token);
             response.EnsureSuccessStatusCode();
-            var payload = await response.Content.ReadFromJsonAsync<SlashCommandResponse>(JsonOptions, cancellationToken);
+            var payload = await response.Content.ReadFromJsonAsync<SlashCommandResponse>(JsonOptions, linkedCts.Token);
             if (payload is not null)
             {
                 return payload;
@@ -131,6 +136,7 @@ public sealed class AiAssistantClient
 
         return exception is HttpRequestException
             or TaskCanceledException
+            or OperationCanceledException
             or JsonException
             or InvalidOperationException;
     }
@@ -145,18 +151,19 @@ public sealed class AiAssistantClient
 
         try
         {
+            using var linkedCts = CreateLinkedTimeoutTokenSource(cancellationToken, RemoteStreamTimeout);
             using var response = await _httpClient.PostAsJsonAsync(
                 "/ai/assist/stream",
                 new AssistStreamRequest(mode, draft, prompt),
-                cancellationToken);
+                linkedCts.Token);
             response.EnsureSuccessStatusCode();
 
-            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            await using var stream = await response.Content.ReadAsStreamAsync(linkedCts.Token);
             using var reader = new StreamReader(stream);
 
-            while (!cancellationToken.IsCancellationRequested)
+            while (!linkedCts.Token.IsCancellationRequested)
             {
-                var line = await reader.ReadLineAsync(cancellationToken);
+                var line = await reader.ReadLineAsync(linkedCts.Token);
                 if (line is null)
                 {
                     break;
@@ -187,6 +194,13 @@ public sealed class AiAssistantClient
         }
 
         return chunks;
+    }
+
+    private static CancellationTokenSource CreateLinkedTimeoutTokenSource(CancellationToken cancellationToken, TimeSpan timeout)
+    {
+        var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        linkedCts.CancelAfter(timeout);
+        return linkedCts;
     }
 
     private static ContinueDraftResponse BuildLocalContinuationResponse(string draft, string source)

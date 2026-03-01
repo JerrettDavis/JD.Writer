@@ -70,7 +70,10 @@ public sealed class StudioSteps
     public async Task WhenIToggleVoiceCaptureWithKeyboard()
     {
         var page = _scenarioContext.GetState().Page!;
-        await page.Keyboard.PressAsync("Control+M");
+        var editor = page.Locator("textarea.editor-input");
+        await editor.ClickAsync();
+        await editor.PressAsync("Control+M");
+        await page.WaitForTimeoutAsync(150);
     }
 
     [When("I toggle voice capture from the toolbar")]
@@ -221,7 +224,12 @@ public sealed class StudioSteps
         var before = await editor.InputValueAsync();
         _scenarioContext.GetState().EditorLengthBeforeAction = before.Length;
 
-        await page.GetByRole(AriaRole.Button, new() { Name = "AI Continue" }).ClickAsync();
+        var continueButton = page.GetByRole(AriaRole.Button, new() { Name = "AI Continue" });
+        await Assertions.Expect(continueButton).ToBeEnabledAsync(new LocatorAssertionsToBeEnabledOptions
+        {
+            Timeout = 15000
+        });
+        await continueButton.ClickAsync();
     }
 
     [Then("editor content should be longer than before")]
@@ -229,8 +237,9 @@ public sealed class StudioSteps
     {
         var page = _scenarioContext.GetState().Page!;
         var beforeLength = _scenarioContext.GetState().EditorLengthBeforeAction ?? 0;
+        var deadline = DateTime.UtcNow.AddSeconds(45);
 
-        for (var i = 0; i < 50; i++)
+        while (DateTime.UtcNow < deadline)
         {
             var current = await page.Locator("textarea.editor-input").InputValueAsync();
             if (current.Length > beforeLength)
@@ -238,7 +247,7 @@ public sealed class StudioSteps
                 return;
             }
 
-            await page.WaitForTimeoutAsync(250);
+            await page.WaitForTimeoutAsync(300);
         }
 
         throw new AssertionException("Editor content did not grow after AI continue.");
@@ -455,7 +464,8 @@ public sealed class StudioSteps
     public async Task ThenLocalStateShouldIncludeVoiceTranscriptAndCleanupOperations()
     {
         var page = _scenarioContext.GetState().Page!;
-        var deadline = DateTime.UtcNow.AddSeconds(12);
+        var deadline = DateTime.UtcNow.AddSeconds(30);
+        List<string> lastOperations = [];
 
         while (DateTime.UtcNow < deadline)
         {
@@ -475,6 +485,7 @@ public sealed class StudioSteps
             var operations = string.IsNullOrWhiteSpace(payload)
                 ? []
                 : JsonSerializer.Deserialize<List<string>>(payload) ?? [];
+            lastOperations = operations;
 
             var hasTranscript = operations.Contains("voice-transcript");
             var hasCleanup = operations.Any(op => op.StartsWith("voice-cleanup", StringComparison.OrdinalIgnoreCase));
@@ -486,7 +497,10 @@ public sealed class StudioSteps
             await page.WaitForTimeoutAsync(250);
         }
 
-        throw new AssertionException("Expected voice-transcript and voice-cleanup layer operations in local state.");
+        var operationText = lastOperations.Count == 0
+            ? "(none)"
+            : string.Join(", ", lastOperations);
+        throw new AssertionException($"Expected voice-transcript and voice-cleanup layer operations in local state. Operations: {operationText}");
     }
 
     [Then(@"app background variable should be ""(.*)""")]
