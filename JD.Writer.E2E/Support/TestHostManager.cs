@@ -40,6 +40,8 @@ internal static class TestHostManager
                     ["AI__Ollama__Endpoint"] = "http://localhost:11434"
                 });
 
+            await WaitForHttpReadyAsync(ApiBaseUrl, TimeSpan.FromSeconds(90));
+
             _webProcess = StartDotnetProject(
                 projectPath: Path.Combine(repoRoot, "JD.Writer.Web", "JD.Writer.Web.csproj"),
                 url: WebBaseUrl,
@@ -49,7 +51,6 @@ internal static class TestHostManager
                     ["ApiServiceBaseUrl"] = ApiBaseUrl
                 });
 
-            await WaitForHttpReadyAsync(ApiBaseUrl, TimeSpan.FromSeconds(90));
             await WaitForHttpReadyAsync(WebBaseUrl, TimeSpan.FromSeconds(90));
 
             _started = true;

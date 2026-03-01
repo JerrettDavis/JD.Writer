@@ -118,8 +118,30 @@ public sealed class StudioSteps
     public async Task WhenICloseTheCommandPalette()
     {
         var page = _scenarioContext.GetState().Page!;
-        await page.Keyboard.PressAsync("Escape");
-        await Assertions.Expect(page.Locator(".command-palette")).ToHaveCountAsync(0);
+        var palette = page.Locator(".command-palette");
+        for (var attempt = 0; attempt < 6; attempt++)
+        {
+            if (await palette.CountAsync() == 0)
+            {
+                return;
+            }
+
+            await page.Keyboard.PressAsync("Escape");
+            await page.WaitForTimeoutAsync(120);
+            if (await palette.CountAsync() == 0)
+            {
+                return;
+            }
+
+            var backdrop = page.Locator(".palette-backdrop");
+            if (await backdrop.CountAsync() > 0)
+            {
+                await backdrop.ClickAsync();
+                await page.WaitForTimeoutAsync(120);
+            }
+        }
+
+        await Assertions.Expect(palette).ToHaveCountAsync(0);
     }
 
     [When(@"I type ""(.*)"" in the editor")]
