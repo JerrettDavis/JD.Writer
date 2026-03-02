@@ -355,6 +355,14 @@ textarea:focus,
   min-height: 0;
 }
 
+.editor-col {
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+}
+
+.preview-col {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
 label {
   font-size: 0.78rem;
   font-weight: 760;
@@ -364,7 +372,7 @@ label {
 }
 
 textarea {
-  flex: 1;
+  height: 100%;
   min-height: 0;
   resize: none;
   font-family: "IBM Plex Mono", Consolas, monospace;
@@ -417,7 +425,7 @@ textarea {
 }
 
 .preview {
-  flex: 1;
+  height: 100%;
   min-height: 0;
   overflow: auto;
   border: 1px solid color-mix(in srgb, var(--panel-border) 82%, transparent);
