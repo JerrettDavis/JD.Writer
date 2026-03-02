@@ -32,6 +32,7 @@ public partial class Home : ComponentBase, IAsyncDisposable
 
     [Inject] private IJSRuntime JS { get; set; } = default!;
     [Inject] private AiAssistantClient AiAssistant { get; set; } = default!;
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private static readonly MarkdownPipeline MarkdownPipeline = new MarkdownPipelineBuilder().DisableHtml().UseAdvancedExtensions().Build();
@@ -500,6 +501,9 @@ public partial class Home : ComponentBase, IAsyncDisposable
             case PaletteAction.ExportNote:
                 await DownloadActiveNoteAsync();
                 break;
+            case PaletteAction.OpenSettings:
+                Navigation.NavigateTo("/settings");
+                break;
             case PaletteAction.SlashCommand:
                 var slash = GetSlashCommandByName(command.Arg ?? string.Empty);
                 if (slash is not null)
@@ -540,7 +544,8 @@ public partial class Home : ComponentBase, IAsyncDisposable
             new() { Title = "AI continue", Description = "Continue the current draft with AI.", Action = PaletteAction.ContinueDraft },
             new() { Title = _isVoiceRecording ? "Stop voice capture" : "Start voice capture", Description = "Toggle voice dictation at the cursor.", Action = PaletteAction.ToggleVoiceCapture },
             new() { Title = "Refresh insights", Description = "Refresh hints/help/brainstorm streams.", Action = PaletteAction.RefreshInsights },
-            new() { Title = "Export markdown", Description = "Download active note as .md.", Action = PaletteAction.ExportNote }
+            new() { Title = "Export markdown", Description = "Download active note as .md.", Action = PaletteAction.ExportNote },
+            new() { Title = "Open settings", Description = "Open Studio Settings.", Action = PaletteAction.OpenSettings }
         };
 
         commands.AddRange(AllSlashCommands().Select(command => new PaletteCommand
@@ -2544,6 +2549,7 @@ public partial class Home : ComponentBase, IAsyncDisposable
         ToggleVoiceCapture,
         RefreshInsights,
         ExportNote,
+        OpenSettings,
         SlashCommand
     }
 

@@ -5,14 +5,67 @@ window.JDWriterStudio = {
     isRunning: false,
     testMode: false
   },
+  _stateKey: "jdwriter.state.v1",
+  _settingsKey: "jdwriter.settings.v1",
   loadState: function () {
-    return window.localStorage.getItem("jdwriter.state.v1");
+    return window.localStorage.getItem(this._stateKey);
   },
   saveState: function (serializedState) {
-    window.localStorage.setItem("jdwriter.state.v1", serializedState);
+    window.localStorage.setItem(this._stateKey, serializedState);
+  },
+  clearState: function () {
+    window.localStorage.removeItem(this._stateKey);
+  },
+  loadSettings: function () {
+    return window.localStorage.getItem(this._settingsKey);
+  },
+  saveSettings: function (serializedSettings) {
+    window.localStorage.setItem(this._settingsKey, serializedSettings);
+  },
+  clearSettings: function () {
+    window.localStorage.removeItem(this._settingsKey);
+  },
+  applySiteTheme: function (themePreference) {
+    const root = document.documentElement;
+    const next = (themePreference || "").toLowerCase();
+    if (next === "light" || next === "dark") {
+      root.setAttribute("data-site-theme", next);
+      return next;
+    }
+
+    root.removeAttribute("data-site-theme");
+    return "system";
+  },
+  applyReducedMotion: function (enabled) {
+    const root = document.documentElement;
+    if (enabled) {
+      root.setAttribute("data-reduce-motion", "true");
+    } else {
+      root.removeAttribute("data-reduce-motion");
+    }
+  },
+  applySavedPreferences: function () {
+    const raw = this.loadSettings();
+    if (!raw) {
+      this.applySiteTheme("system");
+      this.applyReducedMotion(false);
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(raw);
+      this.applySiteTheme(parsed && parsed.themePreference ? parsed.themePreference : "system");
+      this.applyReducedMotion(!!(parsed && parsed.reduceMotion));
+    } catch {
+      this.applySiteTheme("system");
+      this.applyReducedMotion(false);
+    }
   },
   downloadMarkdown: function (filename, content) {
-    const blob = new Blob([content], { type: "text/markdown;charset=utf-8" });
+    this.downloadText(filename, content, "text/markdown;charset=utf-8");
+  },
+  downloadText: function (filename, content, mimeType) {
+    const blob = new Blob([content], { type: mimeType || "text/plain;charset=utf-8" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
     link.download = filename;
@@ -261,3 +314,5 @@ window.JDWriterStudio = {
     ref.invokeMethodAsync("OnVoiceTranscriptFinalized", text).catch(() => {});
   }
 };
+
+window.JDWriterStudio.applySavedPreferences();

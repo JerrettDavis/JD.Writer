@@ -1,0 +1,643 @@
+@page "/settings"
+@using System.Text.Json
+@using Microsoft.AspNetCore.Components.Forms
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
+
+<PageTitle>JD.Writer Settings</PageTitle>
+
+<div class="settings-frame">
+    <header class="settings-header">
+        <div>
+            <p class="settings-eyebrow">JD.Writer Controls</p>
+            <h1>Studio Settings</h1>
+            <p class="settings-subtitle">Configure workspace behavior, AI integrations, voice capture defaults, and local storage controls.</p>
+        </div>
+        <div class="settings-header-actions">
+            <button class="settings-button ghost" @onclick="NavigateHome">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M10 5 3 12l7 7 1.4-1.4L6.8 13H21v-2H6.8l4.6-4.6L10 5Z" />
+                </svg>
+                Back to Studio
+            </button>
+            <button class="settings-button primary"
+                    data-testid="settings-save"
+                    disabled="@(_isLoading || _isSaving)"
+                    @onclick="SaveAsync">
+                @if (_isSaving)
+                {
+                    <span class="inline-loader" aria-hidden="true"></span>
+                    <span>Saving...</span>
+                }
+                else
+                {
+                    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M17 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7l-4-4Zm-5 16a3 3 0 1 1 0-6 3 3 0 0 1 0 6ZM7 5h8v4H7V5Z" />
+                    </svg>
+                    <span>Save settings</span>
+                }
+            </button>
+        </div>
+    </header>
+
+    @if (_isLoading)
+    {
+        <section class="settings-loading" role="status" aria-live="polite">
+            <div class="skeleton-panel">
+                <span class="skeleton-line w-35"></span>
+                <span class="skeleton-line w-80"></span>
+                <span class="skeleton-line w-70"></span>
+            </div>
+            <div class="skeleton-panel">
+                <span class="skeleton-line w-55"></span>
+                <span class="skeleton-line w-90"></span>
+                <span class="skeleton-line w-75"></span>
+            </div>
+            <div class="skeleton-panel">
+                <span class="skeleton-line w-45"></span>
+                <span class="skeleton-line w-82"></span>
+                <span class="skeleton-line w-60"></span>
+            </div>
+        </section>
+    }
+    else
+    {
+        <section class="settings-grid">
+            <nav class="settings-nav" aria-label="Settings sections">
+                <a href="#appearance">Appearance</a>
+                <a href="#editor">Editor</a>
+                <a href="#ai">AI</a>
+                <a href="#voice">Voice</a>
+                <a href="#plugins">Plugins</a>
+                <a href="#storage">Storage</a>
+                <a href="#shortcuts">Shortcuts</a>
+            </nav>
+
+            <EditForm EditContext="_editContext" class="settings-main">
+                <section id="appearance" class="settings-card">
+                    <header>
+                        <h2>
+                            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                <path d="M12 3a9 9 0 1 0 0 18h1.5a2.5 2.5 0 0 0 0-5H12a2 2 0 0 1 0-4h2a7 7 0 0 0 0-14h-2Z" />
+                            </svg>
+                            Appearance
+                        </h2>
+                        <p>Theme and readability defaults for the whole studio.</p>
+                    </header>
+                    <div class="settings-fields two-col">
+                        <label class="field">
+                            <span>Site theme</span>
+                            <select data-testid="settings-theme"
+                                    @bind="_settings.ThemePreference"
+                                    @bind:after="ApplyRuntimePreferencesAsync">
+                                <option value="system">System</option>
+                                <option value="light">Light</option>
+                                <option value="dark">Dark</option>
+                            </select>
+                            <small>Override OS theme when needed.</small>
+                        </label>
+                        <label class="field">
+                            <span>Default preview render theme</span>
+                            <select @bind="_settings.DefaultPreviewTheme">
+                                @foreach (var option in PreviewThemeOptions)
+                                {
+                                    <option value="@option.Id">@option.Label</option>
+                                }
+                            </select>
+                            <small>Used for new workspaces and resets.</small>
+                        </label>
+                        <label class="field checkbox">
+                            <input type="checkbox"
+                                   @bind="_settings.ReduceMotion"
+                                   @bind:after="ApplyRuntimePreferencesAsync" />
+                            <span>Reduce motion effects</span>
+                        </label>
+                        <label class="field">
+                            <span>UI density</span>
+                            <select @bind="_settings.UiDensity">
+                                <option value="compact">Compact</option>
+                                <option value="comfortable">Comfortable</option>
+                                <option value="relaxed">Relaxed</option>
+                            </select>
+                        </label>
+                    </div>
+                </section>
+
+                <section id="editor" class="settings-card">
+                    <header>
+                        <h2>
+                            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                <path d="M4 19.5V22h2.5L17.1 11.4l-2.5-2.5L4 19.5Zm15.7-9.3c.4-.4.4-1 0-1.4l-1.5-1.5c-.4-.4-1-.4-1.4 0l-1.2 1.2 2.5 2.5 1.6-1.8Z" />
+                            </svg>
+                            Editor
+                        </h2>
+                        <p>Typing and markdown behavior preferences.</p>
+                    </header>
+                    <div class="settings-fields two-col">
+                        <label class="field">
+                            <span>Editor font size</span>
+                            <input type="range" min="12" max="24" step="1" @bind="_settings.EditorFontSize" />
+                            <small>@_settings.EditorFontSize px</small>
+                        </label>
+                        <label class="field">
+                            <span>Tab size</span>
+                            <input type="number" min="2" max="8" step="1" @bind="_settings.TabSize" />
+                        </label>
+                        <label class="field checkbox">
+                            <input type="checkbox" @bind="_settings.WrapLines" />
+                            <span>Wrap long lines in editor</span>
+                        </label>
+                        <label class="field checkbox">
+                            <input type="checkbox" @bind="_settings.EnableAutocomplete" />
+                            <span>Enable local autocomplete hints</span>
+                        </label>
+                        <label class="field checkbox">
+                            <input type="checkbox" @bind="_settings.EnableSlashSuggestions" />
+                            <span>Show slash command suggestions</span>
+                        </label>
+                        <label class="field checkbox">
+                            <input type="checkbox" @bind="_settings.AutoRefreshInsights" />
+                            <span>Auto-refresh AI insight panels while typing</span>
+                        </label>
+                    </div>
+                </section>
+
+                <section id="ai" class="settings-card">
+                    <header>
+                        <h2>
+                            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                <path d="M12 2a3 3 0 0 0-3 3v1.1A6 6 0 0 0 6.1 9H5a3 3 0 0 0 0 6h1.1A6 6 0 0 0 9 17.9V19a3 3 0 1 0 6 0v-1.1a6 6 0 0 0 2.9-2.9H19a3 3 0 1 0 0-6h-1.1A6 6 0 0 0 15 6.1V5a3 3 0 0 0-3-3Z" />
+                            </svg>
+                            AI and Providers
+                        </h2>
+                        <p>Control which provider is preferred and how assistant transforms run.</p>
+                    </header>
+                    <div class="settings-fields two-col">
+                        <label class="field">
+                            <span>Provider preference</span>
+                            <select @bind="_settings.ProviderPreference">
+                                <option value="auto">Auto</option>
+                                <option value="ollama">Ollama</option>
+                                <option value="openai">OpenAI</option>
+                                <option value="fallback">Local fallback only</option>
+                            </select>
+                        </label>
+                        <label class="field">
+                            <span>Ollama endpoint</span>
+                            <input type="url" @bind="_settings.OllamaEndpoint" placeholder="http://localhost:11434" />
+                        </label>
+                        <label class="field">
+                            <span>Default Ollama model</span>
+                            <input type="text" @bind="_settings.OllamaModel" placeholder="llama3.2:latest" />
+                        </label>
+                        <label class="field checkbox">
+                            <input type="checkbox" @bind="_settings.EnableAiContinue" />
+                            <span>Enable AI Continue in editor toolbar</span>
+                        </label>
+                    </div>
+                </section>
+
+                <section id="voice" class="settings-card">
+                    <header>
+                        <h2>
+                            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3Zm5-3a1 1 0 1 1 2 0 7 7 0 0 1-6 6.9V21h3a1 1 0 1 1 0 2H8a1 1 0 0 1 0-2h3v-3.1A7 7 0 0 1 5 11a1 1 0 1 1 2 0 5 5 0 0 0 10 0Z" />
+                            </svg>
+                            Voice
+                        </h2>
+                        <p>Live dictation defaults and cleanup behavior.</p>
+                    </header>
+                    <div class="settings-fields two-col">
+                        <label class="field">
+                            <span>Dictation language</span>
+                            <input type="text" @bind="_settings.VoiceLanguage" placeholder="en-US" />
+                        </label>
+                        <label class="field checkbox">
+                            <input type="checkbox" @bind="_settings.EnableLiveInterimTranscript" />
+                            <span>Insert interim transcript live at cursor</span>
+                        </label>
+                        <label class="field checkbox">
+                            <input type="checkbox" @bind="_settings.EnableVoiceCleanup" />
+                            <span>Run AI cleanup after final transcript</span>
+                        </label>
+                        <label class="field checkbox">
+                            <input type="checkbox" @bind="_settings.PersistVoiceAuditTrail" />
+                            <span>Persist Voice Review audit trail</span>
+                        </label>
+                    </div>
+                </section>
+
+                <section id="plugins" class="settings-card">
+                    <header>
+                        <h2>
+                            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                <path d="M21 11h-3.2A3.8 3.8 0 0 0 14 7.2V4a2 2 0 1 0-4 0v3.2A3.8 3.8 0 0 0 6.2 11H3a2 2 0 1 0 0 4h3.2A3.8 3.8 0 0 0 10 18.8V22a2 2 0 1 0 4 0v-3.2a3.8 3.8 0 0 0 3.8-3.8H21a2 2 0 1 0 0-4Zm-9 4a2 2 0 1 1 0-4 2 2 0 0 1 0 4Z" />
+                            </svg>
+                            Plugins
+                        </h2>
+                        <p>Control plugin command and panel loading policy.</p>
+                    </header>
+                    <div class="settings-fields two-col">
+                        <label class="field checkbox">
+                            <input type="checkbox" @bind="_settings.EnablePluginManifest" />
+                            <span>Load plugin manifest from `/plugins/plugins.json`</span>
+                        </label>
+                        <label class="field checkbox">
+                            <input type="checkbox" @bind="_settings.AllowRemotePluginPrompts" />
+                            <span>Allow plugin-defined AI prompts</span>
+                        </label>
+                        <label class="field">
+                            <span>Plugin manifest path</span>
+                            <input type="text" @bind="_settings.PluginManifestPath" />
+                        </label>
+                    </div>
+                </section>
+
+                <section id="storage" class="settings-card">
+                    <header>
+                        <h2>
+                            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                <path d="M12 2C7 2 3 3.8 3 6v12c0 2.2 4 4 9 4s9-1.8 9-4V6c0-2.2-4-4-9-4Zm0 2c4.6 0 7 .9 7 2s-2.4 2-7 2-7-.9-7-2 2.4-2 7-2Zm0 16c-4.6 0-7-.9-7-2v-2.2c1.6 1 4.3 1.6 7 1.6s5.4-.6 7-1.6V18c0 1.1-2.4 2-7 2Z" />
+                            </svg>
+                            Storage and Safety
+                        </h2>
+                        <p>Configure persistence ceilings and recovery behavior.</p>
+                    </header>
+                    <div class="settings-fields two-col">
+                        <label class="field">
+                            <span>Max history layers per note</span>
+                            <input type="number" min="50" max="500" step="10" @bind="_settings.MaxLayersPerNote" />
+                        </label>
+                        <label class="field">
+                            <span>Max voice sessions per note</span>
+                            <input type="number" min="20" max="400" step="10" @bind="_settings.MaxVoiceSessionsPerNote" />
+                        </label>
+                        <label class="field checkbox">
+                            <input type="checkbox" @bind="_settings.EnableTelemetry" />
+                            <span>Allow anonymous usage telemetry</span>
+                        </label>
+                    </div>
+                </section>
+
+                <section id="shortcuts" class="settings-card">
+                    <header>
+                        <h2>
+                            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                <path d="M4 6h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2Zm2 3v2h2V9H6Zm3 0v2h2V9H9Zm3 0v2h2V9h-2Zm3 0v2h3V9h-3Z" />
+                            </svg>
+                            Keyboard Shortcuts
+                        </h2>
+                        <p>Current built-in shortcuts for fast authoring.</p>
+                    </header>
+                    <ul class="shortcut-list">
+                        <li><kbd>Ctrl+K</kbd> Open command palette</li>
+                        <li><kbd>Ctrl+J</kbd> AI continue</li>
+                        <li><kbd>Ctrl+M</kbd> Toggle voice capture</li>
+                        <li><kbd>Ctrl+Enter</kbd> Apply top slash suggestion</li>
+                        <li><kbd>Ctrl+Space</kbd> Accept autocomplete hint</li>
+                    </ul>
+                </section>
+            </EditForm>
+
+            <aside class="settings-side">
+                <section class="settings-card side-card">
+                    <h3>Status</h3>
+                    <p role="status" aria-live="polite">@_statusMessage</p>
+                    @if (_lastSavedAt is not null)
+                    {
+                        <small>Last saved: @_lastSavedAt.Value.ToLocalTime().ToString("MMM d, h:mm:ss tt")</small>
+                    }
+                </section>
+
+                <section class="settings-card side-card">
+                    <h3>Backup and Recovery</h3>
+                    <div class="side-actions">
+                        <button class="settings-button ghost" @onclick="ExportSettingsAsync">
+                            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                <path d="M12 3a1 1 0 0 1 1 1v8.6l2.3-2.3a1 1 0 0 1 1.4 1.4l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 0 1 1.4-1.4L11 12.6V4a1 1 0 0 1 1-1Zm-7 14a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1Z" />
+                            </svg>
+                            Export settings JSON
+                        </button>
+
+                        <label class="settings-button ghost import-button">
+                            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                <path d="M12 21a1 1 0 0 1-1-1v-8.6l-2.3 2.3a1 1 0 0 1-1.4-1.4l4-4a1 1 0 0 1 1.4 0l4 4a1 1 0 0 1-1.4 1.4L13 11.4V20a1 1 0 0 1-1 1Zm-7-6a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1Z" />
+                            </svg>
+                            Import settings JSON
+                            <InputFile OnChange="ImportSettingsAsync" accept=".json,application/json" />
+                        </label>
+
+                        <button class="settings-button danger" @onclick="ResetDefaultsAsync">Reset to defaults</button>
+                        <button class="settings-button danger" @onclick="ClearWorkspaceStateAsync">Clear note workspace cache</button>
+                    </div>
+                </section>
+            </aside>
+        </section>
+    }
+</div>
+
+@code
+{
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { WriteIndented = true };
+
+    private static readonly List<PreviewThemeOption> PreviewThemeOptions =
+    [
+        new("studio", "Studio"),
+        new("paper", "Paper"),
+        new("solarized", "Solarized"),
+        new("terminal", "Terminal"),
+        new("noir", "Noir"),
+        new("blueprint", "Blueprint")
+    ];
+
+    private StudioSettings _settings = CreateDefaultSettings();
+    private EditContext _editContext = default!;
+    private bool _isLoading = true;
+    private bool _isSaving;
+    private bool _hasUnsavedChanges;
+    private string _statusMessage = "Loading settings...";
+    private DateTimeOffset? _lastSavedAt;
+
+    protected override void OnInitialized()
+    {
+        RebuildEditContext();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        await LoadSettingsAsync();
+    }
+
+    private async Task LoadSettingsAsync()
+    {
+        _isLoading = true;
+        _statusMessage = "Loading settings...";
+        await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            var raw = await JS.InvokeAsync<string?>("JDWriterStudio.loadSettings");
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                _settings = CreateDefaultSettings();
+                _statusMessage = "Using default settings";
+            }
+            else
+            {
+                _settings = NormalizeSettings(JsonSerializer.Deserialize<StudioSettings>(raw, JsonOptions));
+                _statusMessage = "Settings loaded";
+            }
+
+            RebuildEditContext();
+            _hasUnsavedChanges = false;
+            await ApplyRuntimePreferencesAsync();
+        }
+        catch
+        {
+            _settings = CreateDefaultSettings();
+            RebuildEditContext();
+            _statusMessage = "Settings load failed; default settings restored";
+            _hasUnsavedChanges = true;
+        }
+        finally
+        {
+            _isLoading = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_isSaving || _isLoading)
+        {
+            return;
+        }
+
+        _isSaving = true;
+        _statusMessage = "Saving settings...";
+        await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            _settings = NormalizeSettings(_settings);
+            var serialized = JsonSerializer.Serialize(_settings, JsonOptions);
+            await JS.InvokeVoidAsync("JDWriterStudio.saveSettings", serialized);
+            await ApplyRuntimePreferencesAsync();
+            _hasUnsavedChanges = false;
+            _lastSavedAt = DateTimeOffset.UtcNow;
+            _statusMessage = "Settings saved";
+        }
+        catch
+        {
+            _statusMessage = "Settings save failed";
+        }
+        finally
+        {
+            _isSaving = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task ExportSettingsAsync()
+    {
+        try
+        {
+            _settings = NormalizeSettings(_settings);
+            var serialized = JsonSerializer.Serialize(_settings, JsonOptions);
+            await JS.InvokeVoidAsync("JDWriterStudio.downloadText", "jdwriter-settings.json", serialized, "application/json;charset=utf-8");
+            _statusMessage = "Settings exported";
+        }
+        catch
+        {
+            _statusMessage = "Settings export failed";
+        }
+    }
+
+    private async Task ImportSettingsAsync(InputFileChangeEventArgs args)
+    {
+        var file = args.File;
+        if (file is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await using var stream = file.OpenReadStream(maxAllowedSize: 1_000_000);
+            using var reader = new StreamReader(stream);
+            var raw = await reader.ReadToEndAsync();
+            var imported = JsonSerializer.Deserialize<StudioSettings>(raw, JsonOptions);
+            _settings = NormalizeSettings(imported);
+            RebuildEditContext();
+            _hasUnsavedChanges = true;
+            _statusMessage = "Settings imported; save to persist";
+            await ApplyRuntimePreferencesAsync();
+        }
+        catch
+        {
+            _statusMessage = "Invalid settings file";
+        }
+    }
+
+    private async Task ResetDefaultsAsync()
+    {
+        _settings = CreateDefaultSettings();
+        RebuildEditContext();
+        _hasUnsavedChanges = true;
+        _statusMessage = "Defaults restored; save to persist";
+        await ApplyRuntimePreferencesAsync();
+    }
+
+    private async Task ClearWorkspaceStateAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("JDWriterStudio.clearState");
+            _statusMessage = "Workspace cache cleared";
+        }
+        catch
+        {
+            _statusMessage = "Workspace cache clear failed";
+        }
+    }
+
+    private async Task ApplyRuntimePreferencesAsync()
+    {
+        await JS.InvokeVoidAsync("JDWriterStudio.applySiteTheme", _settings.ThemePreference);
+        await JS.InvokeVoidAsync("JDWriterStudio.applyReducedMotion", _settings.ReduceMotion);
+    }
+
+    private void NavigateHome()
+    {
+        Navigation.NavigateTo("/");
+    }
+
+    private void RebuildEditContext()
+    {
+        _editContext = new EditContext(_settings);
+        _editContext.OnFieldChanged += (_, _) =>
+        {
+            _hasUnsavedChanges = true;
+            _statusMessage = "Unsaved changes";
+            InvokeAsync(StateHasChanged);
+        };
+    }
+
+    private static StudioSettings CreateDefaultSettings() => new()
+    {
+        ThemePreference = "system",
+        DefaultPreviewTheme = "studio",
+        ReduceMotion = false,
+        UiDensity = "comfortable",
+        EditorFontSize = 15,
+        TabSize = 2,
+        WrapLines = true,
+        EnableAutocomplete = true,
+        EnableSlashSuggestions = true,
+        AutoRefreshInsights = true,
+        ProviderPreference = "auto",
+        OllamaEndpoint = "http://localhost:11434",
+        OllamaModel = "llama3.2:latest",
+        EnableAiContinue = true,
+        VoiceLanguage = "en-US",
+        EnableLiveInterimTranscript = true,
+        EnableVoiceCleanup = true,
+        PersistVoiceAuditTrail = true,
+        EnablePluginManifest = true,
+        AllowRemotePluginPrompts = true,
+        PluginManifestPath = "/plugins/plugins.json",
+        MaxLayersPerNote = 240,
+        MaxVoiceSessionsPerNote = 120,
+        EnableTelemetry = false
+    };
+
+    private static StudioSettings NormalizeSettings(StudioSettings? input)
+    {
+        var defaults = CreateDefaultSettings();
+        if (input is null)
+        {
+            return defaults;
+        }
+
+        var normalizedTheme = (input.ThemePreference ?? defaults.ThemePreference).Trim().ToLowerInvariant();
+        if (normalizedTheme is not ("system" or "light" or "dark"))
+        {
+            normalizedTheme = defaults.ThemePreference;
+        }
+
+        var normalizedDensity = (input.UiDensity ?? defaults.UiDensity).Trim().ToLowerInvariant();
+        if (normalizedDensity is not ("compact" or "comfortable" or "relaxed"))
+        {
+            normalizedDensity = defaults.UiDensity;
+        }
+
+        var previewTheme = string.IsNullOrWhiteSpace(input.DefaultPreviewTheme) ? defaults.DefaultPreviewTheme : input.DefaultPreviewTheme.Trim().ToLowerInvariant();
+        if (PreviewThemeOptions.All(option => !string.Equals(option.Id, previewTheme, StringComparison.OrdinalIgnoreCase)))
+        {
+            previewTheme = defaults.DefaultPreviewTheme;
+        }
+
+        return new StudioSettings
+        {
+            ThemePreference = normalizedTheme,
+            DefaultPreviewTheme = previewTheme,
+            ReduceMotion = input.ReduceMotion,
+            UiDensity = normalizedDensity,
+            EditorFontSize = Math.Clamp(input.EditorFontSize, 12, 24),
+            TabSize = Math.Clamp(input.TabSize, 2, 8),
+            WrapLines = input.WrapLines,
+            EnableAutocomplete = input.EnableAutocomplete,
+            EnableSlashSuggestions = input.EnableSlashSuggestions,
+            AutoRefreshInsights = input.AutoRefreshInsights,
+            ProviderPreference = string.IsNullOrWhiteSpace(input.ProviderPreference) ? defaults.ProviderPreference : input.ProviderPreference.Trim().ToLowerInvariant(),
+            OllamaEndpoint = string.IsNullOrWhiteSpace(input.OllamaEndpoint) ? defaults.OllamaEndpoint : input.OllamaEndpoint.Trim(),
+            OllamaModel = string.IsNullOrWhiteSpace(input.OllamaModel) ? defaults.OllamaModel : input.OllamaModel.Trim(),
+            EnableAiContinue = input.EnableAiContinue,
+            VoiceLanguage = string.IsNullOrWhiteSpace(input.VoiceLanguage) ? defaults.VoiceLanguage : input.VoiceLanguage.Trim(),
+            EnableLiveInterimTranscript = input.EnableLiveInterimTranscript,
+            EnableVoiceCleanup = input.EnableVoiceCleanup,
+            PersistVoiceAuditTrail = input.PersistVoiceAuditTrail,
+            EnablePluginManifest = input.EnablePluginManifest,
+            AllowRemotePluginPrompts = input.AllowRemotePluginPrompts,
+            PluginManifestPath = string.IsNullOrWhiteSpace(input.PluginManifestPath) ? defaults.PluginManifestPath : input.PluginManifestPath.Trim(),
+            MaxLayersPerNote = Math.Clamp(input.MaxLayersPerNote, 50, 500),
+            MaxVoiceSessionsPerNote = Math.Clamp(input.MaxVoiceSessionsPerNote, 20, 400),
+            EnableTelemetry = input.EnableTelemetry
+        };
+    }
+
+    private sealed class StudioSettings
+    {
+        public string ThemePreference { get; set; } = "system";
+        public string DefaultPreviewTheme { get; set; } = "studio";
+        public bool ReduceMotion { get; set; }
+        public string UiDensity { get; set; } = "comfortable";
+        public int EditorFontSize { get; set; } = 15;
+        public int TabSize { get; set; } = 2;
+        public bool WrapLines { get; set; } = true;
+        public bool EnableAutocomplete { get; set; } = true;
+        public bool EnableSlashSuggestions { get; set; } = true;
+        public bool AutoRefreshInsights { get; set; } = true;
+        public string ProviderPreference { get; set; } = "auto";
+        public string OllamaEndpoint { get; set; } = "http://localhost:11434";
+        public string OllamaModel { get; set; } = "llama3.2:latest";
+        public bool EnableAiContinue { get; set; } = true;
+        public string VoiceLanguage { get; set; } = "en-US";
+        public bool EnableLiveInterimTranscript { get; set; } = true;
+        public bool EnableVoiceCleanup { get; set; } = true;
+        public bool PersistVoiceAuditTrail { get; set; } = true;
+        public bool EnablePluginManifest { get; set; } = true;
+        public bool AllowRemotePluginPrompts { get; set; } = true;
+        public string PluginManifestPath { get; set; } = "/plugins/plugins.json";
+        public int MaxLayersPerNote { get; set; } = 240;
+        public int MaxVoiceSessionsPerNote { get; set; } = 120;
+        public bool EnableTelemetry { get; set; }
+    }
+
+    private sealed record PreviewThemeOption(string Id, string Label);
+}

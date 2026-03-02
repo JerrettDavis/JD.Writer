@@ -24,6 +24,7 @@ This matrix maps each acceptance criterion to deterministic validation evidence.
 | AC-18 | History QC panel surfaces checkpoints | `Edit layers are persisted with diff and tone metrics` |
 | AC-24 | Voice session audit logs are persisted and reviewable | `Voice recordings are reviewable in persisted audit logs`; `Voice interim transcript appears at cursor before final cleanup` |
 | AC-19 | System theme-aware styling | `System dark theme variables are applied` |
+| AC-25 | Settings page persists user preferences | `Settings page persists theme preference` |
 | AC-20 | Client/server and client-only runtime modes | `AI continue appends content in the editor`; `Client-only mode continues draft without API service` |
 | AC-21 | Docker assets support both runtime profiles | `.github/workflows/docker.yml` Docker target matrix |
 | AC-22 | Release includes all distribution models | `.github/workflows/release.yml`; `scripts/release/publish-release-models.ps1`; `scripts/release/publish-release-models.sh` |

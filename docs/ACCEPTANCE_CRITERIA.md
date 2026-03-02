@@ -41,6 +41,7 @@ This document defines the functional quality bar for JD.Writer v1.
 ## Theme and Readability
 
 - AC-19: Studio honors system theme preference and applies dark/light tokens via media query support.
+- AC-25: A dedicated Settings page allows users to configure and persist site theme, editor/AI/voice/plugin/storage preferences with import/export/reset actions.
 
 ## Release and Deployment
 

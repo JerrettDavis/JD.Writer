@@ -27,6 +27,16 @@ Feature: Studio acceptance criteria
     Then the note title input should be "E2E Local Persistence"
     And the editor should contain "# Persisted Note"
 
+  Scenario: Settings page persists theme preference
+    Given JD.Writer is running for e2e tests
+    When I open the settings page
+    Then settings title should contain "Studio Settings"
+    When I choose settings theme preference "dark"
+    And I save settings
+    And I reload the page
+    Then settings theme preference should be "dark"
+    And document site theme should be "dark"
+
   Scenario: Corrupted local state is recovered without a circuit crash
     Given JD.Writer is running for e2e tests
     When I open the studio home page

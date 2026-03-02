@@ -41,6 +41,15 @@ public sealed class StudioSteps
         await EnsureEditorReadyAsync(page);
     }
 
+    [When("I open the settings page")]
+    public async Task WhenIOpenTheSettingsPage()
+    {
+        var state = _scenarioContext.GetState();
+        var page = state.Page!;
+        await page.GotoAsync($"{state.WebBaseUrl.TrimEnd('/')}/settings", new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
+        await Assertions.Expect(page.Locator(".settings-header h1")).ToContainTextAsync("Studio Settings");
+    }
+
     [When("I open the command palette with keyboard")]
     public async Task WhenIOpenTheCommandPaletteWithKeyboard()
     {
@@ -280,6 +289,49 @@ public sealed class StudioSteps
         await Assertions.Expect(page.Locator(".studio-header h1")).ToContainTextAsync(title);
     }
 
+    [Then(@"settings title should contain ""(.*)""")]
+    public async Task ThenSettingsTitleShouldContain(string title)
+    {
+        var page = _scenarioContext.GetState().Page!;
+        await Assertions.Expect(page.Locator(".settings-header h1")).ToContainTextAsync(title);
+    }
+
+    [When(@"I choose settings theme preference ""(.*)""")]
+    public async Task WhenIChooseSettingsThemePreference(string theme)
+    {
+        var page = _scenarioContext.GetState().Page!;
+        await page.Locator("[data-testid='settings-theme']").SelectOptionAsync(theme);
+        await page.WaitForTimeoutAsync(120);
+    }
+
+    [When("I save settings")]
+    public async Task WhenISaveSettings()
+    {
+        var page = _scenarioContext.GetState().Page!;
+        var saveButton = page.Locator("[data-testid='settings-save']");
+        await Assertions.Expect(saveButton).ToBeEnabledAsync();
+        await saveButton.ClickAsync();
+        await page.WaitForTimeoutAsync(220);
+    }
+
+    [Then(@"settings theme preference should be ""(.*)""")]
+    public async Task ThenSettingsThemePreferenceShouldBe(string theme)
+    {
+        var page = _scenarioContext.GetState().Page!;
+        await Assertions.Expect(page.Locator("[data-testid='settings-theme']")).ToHaveValueAsync(theme);
+    }
+
+    [Then(@"document site theme should be ""(.*)""")]
+    public async Task ThenDocumentSiteThemeShouldBe(string expectedTheme)
+    {
+        var page = _scenarioContext.GetState().Page!;
+        var theme = await page.EvaluateAsync<string?>(@"
+            (() => document.documentElement.getAttribute('data-site-theme'))();
+        ");
+
+        Assert.That(theme, Is.EqualTo(expectedTheme));
+    }
+
     [When(@"I set note title to ""(.*)""")]
     public async Task WhenISetNoteTitleTo(string value)
     {
@@ -294,6 +346,12 @@ public sealed class StudioSteps
     {
         var page = _scenarioContext.GetState().Page!;
         await page.ReloadAsync(new PageReloadOptions { WaitUntil = WaitUntilState.NetworkIdle });
+        if (page.Url.Contains("/settings", StringComparison.OrdinalIgnoreCase))
+        {
+            await Assertions.Expect(page.Locator(".settings-header h1")).ToContainTextAsync("Studio Settings");
+            return;
+        }
+
         await EnsureEditorReadyAsync(page);
     }
 

@@ -34,9 +34,30 @@ a {
 }
 
 @media (prefers-color-scheme: dark) {
-    :root {
+    :root:not([data-site-theme="light"]):not([data-site-theme="dark"]) {
         --app-bg: #070c16;
         --app-text: #e2e9f8;
         --app-link: #a8c9ff;
     }
+}
+
+:root[data-site-theme="light"] {
+    --app-bg: #e9eff8;
+    --app-text: #111827;
+    --app-link: #1a345f;
+}
+
+:root[data-site-theme="dark"] {
+    --app-bg: #070c16;
+    --app-text: #e2e9f8;
+    --app-link: #a8c9ff;
+}
+
+:root[data-reduce-motion="true"] *,
+:root[data-reduce-motion="true"] *::before,
+:root[data-reduce-motion="true"] *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
 }

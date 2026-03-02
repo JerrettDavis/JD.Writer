@@ -12,6 +12,7 @@ It works in three ways:
 - Full stack: web + API (best when you want Ollama/Semantic Kernel features)
 - Standalone client-only: web app with deterministic local heuristics
 - Static GitHub Pages app: in-browser Studio Lite with no server required
+- Dedicated settings hub: persistent local-first configuration for theme/editor/AI/voice/plugins
 
 ## Why This Exists
 

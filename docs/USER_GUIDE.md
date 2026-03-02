@@ -46,6 +46,17 @@ If no API is available, the client falls back to deterministic local behavior.
 - Markdown render themes can be changed independently from site theme.
 - Theme selections persist in browser storage.
 
+## Settings Page
+
+Open `/settings` (or use `Open settings` from command palette) to manage:
+
+- site theme and motion preferences
+- editor and AI behavior defaults
+- voice capture/transcript options
+- plugin loading policy
+- local storage ceilings and safety controls
+- settings import/export/reset operations
+
 ## History, Layering, and QC
 
 Each edit is stored as a JSON layer with:

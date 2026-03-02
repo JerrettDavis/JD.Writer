@@ -275,6 +275,22 @@
     color: #a57122;
 }
 
+.icon-pill.settings {
+    color: #235793;
+}
+
+.status-pill.status-link {
+    text-decoration: none;
+}
+
+.status-pill.status-link:hover,
+.status-pill.status-link:focus-visible {
+    border-color: rgba(27, 92, 173, 0.55);
+    background: rgba(215, 231, 250, 0.85);
+    color: #0f2f57;
+    outline: none;
+}
+
 .studio-grid {
     display: grid;
     grid-template-columns: 17rem minmax(0, 1fr) 21rem;
