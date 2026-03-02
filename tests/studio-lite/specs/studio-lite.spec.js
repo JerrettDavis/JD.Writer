@@ -36,8 +36,7 @@ test("creates note and keeps markdown preview in sync", async ({ page }) => {
 });
 
 test("shows slash command suggestions while typing", async ({ page }) => {
-  await page.click("#note-content");
-  await page.keyboard.type("/su");
+  await page.fill("#note-content", "/su");
   await expect(page.locator("#slash-bar")).toBeVisible();
   await expect(page.locator("#slash-bar .slash-item").first()).toContainText("/summarize");
 });
