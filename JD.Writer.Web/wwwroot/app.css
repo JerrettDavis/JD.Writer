@@ -42,12 +42,14 @@ a {
 }
 
 :root[data-site-theme="light"] {
+    color-scheme: light;
     --app-bg: #e9eff8;
     --app-text: #111827;
     --app-link: #1a345f;
 }
 
 :root[data-site-theme="dark"] {
+    color-scheme: dark;
     --app-bg: #070c16;
     --app-text: #e2e9f8;
     --app-link: #a8c9ff;

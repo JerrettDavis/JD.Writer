@@ -1,3 +1,83 @@
+:root {
+    --settings-ink: #14223e;
+    --settings-muted: #455574;
+    --settings-bg:
+        radial-gradient(85rem 34rem at 16% -10%, rgba(28, 180, 200, 0.2), transparent 58%),
+        radial-gradient(74rem 30rem at 92% -12%, rgba(234, 160, 84, 0.18), transparent 55%),
+        linear-gradient(145deg, #f5f8fd 0%, #edf2fa 43%, #e3eaf6 100%);
+    --settings-shell-bg: rgba(255, 255, 255, 0.76);
+    --settings-shell-border: rgba(14, 22, 44, 0.11);
+    --settings-card-bg: rgba(252, 253, 255, 0.92);
+    --settings-card-border: rgba(14, 23, 46, 0.1);
+    --settings-input-bg: rgba(255, 255, 255, 0.94);
+    --settings-input-border: rgba(18, 28, 52, 0.18);
+    --settings-input-ink: #192c4f;
+    --settings-ghost-bg: rgba(255, 255, 255, 0.9);
+    --settings-ghost-ink: #162542;
+    --settings-nav-link-bg: rgba(255, 255, 255, 0.9);
+    --settings-nav-link-border: rgba(21, 32, 57, 0.13);
+    --settings-nav-link-ink: #1b2d51;
+    --settings-nav-link-bg-hover: rgba(224, 239, 255, 0.65);
+    --settings-nav-link-border-hover: rgba(33, 113, 206, 0.55);
+    --settings-kbd-bg: rgba(245, 249, 255, 0.95);
+    --settings-kbd-border: rgba(16, 24, 43, 0.2);
+    --settings-kbd-ink: #122a4a;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-site-theme="light"]):not([data-site-theme="dark"]) {
+        --settings-ink: #e2ebff;
+        --settings-muted: #a9b8d6;
+        --settings-bg:
+            radial-gradient(90rem 38rem at 15% -12%, rgba(24, 128, 170, 0.18), transparent 58%),
+            radial-gradient(78rem 34rem at 90% -15%, rgba(164, 106, 42, 0.16), transparent 55%),
+            linear-gradient(145deg, #0b1322 0%, #0a1220 45%, #09101b 100%);
+        --settings-shell-bg: rgba(12, 19, 34, 0.8);
+        --settings-shell-border: rgba(148, 175, 220, 0.18);
+        --settings-card-bg: rgba(15, 24, 41, 0.92);
+        --settings-card-border: rgba(148, 175, 220, 0.2);
+        --settings-input-bg: rgba(9, 16, 29, 0.94);
+        --settings-input-border: rgba(151, 180, 224, 0.3);
+        --settings-input-ink: #dfe9ff;
+        --settings-ghost-bg: rgba(18, 29, 50, 0.88);
+        --settings-ghost-ink: #d8e5ff;
+        --settings-nav-link-bg: rgba(12, 22, 39, 0.9);
+        --settings-nav-link-border: rgba(153, 181, 223, 0.25);
+        --settings-nav-link-ink: #d6e5ff;
+        --settings-nav-link-bg-hover: rgba(33, 66, 111, 0.5);
+        --settings-nav-link-border-hover: rgba(121, 171, 246, 0.7);
+        --settings-kbd-bg: rgba(16, 28, 49, 0.92);
+        --settings-kbd-border: rgba(161, 187, 228, 0.35);
+        --settings-kbd-ink: #d8e7ff;
+    }
+}
+
+:root[data-site-theme="dark"] {
+    --settings-ink: #e2ebff;
+    --settings-muted: #a9b8d6;
+    --settings-bg:
+        radial-gradient(90rem 38rem at 15% -12%, rgba(24, 128, 170, 0.18), transparent 58%),
+        radial-gradient(78rem 34rem at 90% -15%, rgba(164, 106, 42, 0.16), transparent 55%),
+        linear-gradient(145deg, #0b1322 0%, #0a1220 45%, #09101b 100%);
+    --settings-shell-bg: rgba(12, 19, 34, 0.8);
+    --settings-shell-border: rgba(148, 175, 220, 0.18);
+    --settings-card-bg: rgba(15, 24, 41, 0.92);
+    --settings-card-border: rgba(148, 175, 220, 0.2);
+    --settings-input-bg: rgba(9, 16, 29, 0.94);
+    --settings-input-border: rgba(151, 180, 224, 0.3);
+    --settings-input-ink: #dfe9ff;
+    --settings-ghost-bg: rgba(18, 29, 50, 0.88);
+    --settings-ghost-ink: #d8e5ff;
+    --settings-nav-link-bg: rgba(12, 22, 39, 0.9);
+    --settings-nav-link-border: rgba(153, 181, 223, 0.25);
+    --settings-nav-link-ink: #d6e5ff;
+    --settings-nav-link-bg-hover: rgba(33, 66, 111, 0.5);
+    --settings-nav-link-border-hover: rgba(121, 171, 246, 0.7);
+    --settings-kbd-bg: rgba(16, 28, 49, 0.92);
+    --settings-kbd-border: rgba(161, 187, 228, 0.35);
+    --settings-kbd-ink: #d8e7ff;
+}
+
 .icon {
     fill: currentColor;
     flex: 0 0 auto;
@@ -10,11 +90,8 @@
     display: flex;
     flex-direction: column;
     padding: 2rem;
-    background:
-        radial-gradient(85rem 34rem at 16% -10%, rgba(28, 180, 200, 0.2), transparent 58%),
-        radial-gradient(74rem 30rem at 92% -12%, rgba(234, 160, 84, 0.18), transparent 55%),
-        linear-gradient(145deg, #f5f8fd 0%, #edf2fa 43%, #e3eaf6 100%);
-    color: #14223e;
+    background: var(--settings-bg);
+    color: var(--settings-ink);
     font-family: "Manrope", "Segoe UI", sans-serif;
 }
 
@@ -28,7 +105,7 @@
 
 .settings-eyebrow {
     margin: 0;
-    color: #45618a;
+    color: var(--settings-muted);
     text-transform: uppercase;
     letter-spacing: 0.2em;
     font-size: 0.76rem;
@@ -39,12 +116,12 @@
     margin: 0.2rem 0;
     font-family: "Fraunces", Georgia, serif;
     font-size: clamp(1.6rem, 2.5vw, 2.2rem);
-    color: #101c36;
+    color: var(--settings-ink);
 }
 
 .settings-subtitle {
     margin: 0;
-    color: #455574;
+    color: var(--settings-muted);
     font-size: 0.93rem;
 }
 
@@ -87,8 +164,8 @@
 }
 
 .settings-button.ghost {
-    color: #162542;
-    background: rgba(255, 255, 255, 0.9);
+    color: var(--settings-ghost-ink);
+    background: var(--settings-ghost-bg);
 }
 
 .settings-button.danger {
@@ -151,18 +228,21 @@
 .settings-grid {
     flex: 1;
     min-height: 0;
-    overflow: hidden;
+    overflow-y: auto;
+    overflow-x: hidden;
     display: grid;
     gap: 0.9rem;
     grid-template-columns: 12.5rem minmax(0, 1fr) 19rem;
+    grid-template-rows: minmax(0, 1fr);
+    scrollbar-gutter: stable;
 }
 
 .settings-nav,
 .settings-main,
 .settings-side {
     border-radius: 0.94rem;
-    border: 1px solid rgba(14, 22, 44, 0.11);
-    background: rgba(255, 255, 255, 0.76);
+    border: 1px solid var(--settings-shell-border);
+    background: var(--settings-shell-bg);
     box-shadow: 0 20px 44px -34px rgba(15, 23, 42, 0.78);
     backdrop-filter: blur(8px);
 }
@@ -176,9 +256,9 @@
 
 .settings-nav a {
     border-radius: 0.62rem;
-    border: 1px solid rgba(21, 32, 57, 0.13);
-    background: rgba(255, 255, 255, 0.9);
-    color: #1b2d51;
+    border: 1px solid var(--settings-nav-link-border);
+    background: var(--settings-nav-link-bg);
+    color: var(--settings-nav-link-ink);
     text-decoration: none;
     padding: 0.56rem 0.62rem;
     font-size: 0.82rem;
@@ -188,14 +268,15 @@
 
 .settings-nav a:hover,
 .settings-nav a:focus-visible {
-    border-color: rgba(33, 113, 206, 0.55);
-    background: rgba(224, 239, 255, 0.65);
+    border-color: var(--settings-nav-link-border-hover);
+    background: var(--settings-nav-link-bg-hover);
     outline: none;
     transform: translateX(1px);
 }
 
 .settings-main {
     min-height: 0;
+    max-height: 100%;
     overflow-y: auto;
     display: grid;
     gap: 0.78rem;
@@ -204,9 +285,9 @@
 }
 
 .settings-card {
-    border: 1px solid rgba(14, 23, 46, 0.1);
+    border: 1px solid var(--settings-card-border);
     border-radius: 0.78rem;
-    background: rgba(252, 253, 255, 0.92);
+    background: var(--settings-card-bg);
     padding: 0.88rem;
 }
 
@@ -214,7 +295,7 @@
     margin: 0;
     font-family: "Fraunces", Georgia, serif;
     font-size: 1.18rem;
-    color: #112446;
+    color: var(--settings-ink);
     display: inline-flex;
     align-items: center;
     gap: 0.38rem;
@@ -228,7 +309,7 @@
 
 .settings-card header p {
     margin: 0.35rem 0 0;
-    color: #4d5f7d;
+    color: var(--settings-muted);
     font-size: 0.83rem;
 }
 
@@ -248,14 +329,14 @@
 }
 
 .field > span {
-    color: #27395d;
+    color: var(--settings-ink);
     font-size: 0.8rem;
     font-weight: 760;
     letter-spacing: 0.01em;
 }
 
 .field > small {
-    color: #516384;
+    color: var(--settings-muted);
     font-size: 0.75rem;
 }
 
@@ -271,10 +352,10 @@
 .field input[type="url"],
 .field input[type="number"],
 .field select {
-    border: 1px solid rgba(18, 28, 52, 0.18);
+    border: 1px solid var(--settings-input-border);
     border-radius: 0.58rem;
-    background: rgba(255, 255, 255, 0.94);
-    color: #192c4f;
+    background: var(--settings-input-bg);
+    color: var(--settings-input-ink);
     padding: 0.48rem 0.56rem;
 }
 
@@ -293,7 +374,7 @@
 .field.checkbox input {
     width: 1rem;
     height: 1rem;
-    accent-color: #245ea1;
+    accent-color: #3d7fd2;
 }
 
 .field.checkbox span {
@@ -309,7 +390,7 @@
 }
 
 .shortcut-list li {
-    color: #263859;
+    color: var(--settings-ink);
     font-size: 0.85rem;
 }
 
@@ -317,9 +398,9 @@ kbd {
     display: inline-block;
     padding: 0.14rem 0.38rem;
     border-radius: 0.42rem;
-    border: 1px solid rgba(16, 24, 43, 0.2);
-    background: rgba(245, 249, 255, 0.95);
-    color: #122a4a;
+    border: 1px solid var(--settings-kbd-border);
+    background: var(--settings-kbd-bg);
+    color: var(--settings-kbd-ink);
     font-size: 0.76rem;
     font-family: "Consolas", "SFMono-Regular", "Menlo", monospace;
     font-weight: 700;
@@ -327,6 +408,7 @@ kbd {
 
 .settings-side {
     min-height: 0;
+    max-height: 100%;
     overflow-y: auto;
     display: grid;
     align-content: start;
@@ -337,13 +419,13 @@ kbd {
 .side-card h3 {
     margin: 0 0 0.5rem;
     font-family: "Fraunces", Georgia, serif;
-    color: #102343;
+    color: var(--settings-ink);
     font-size: 1.06rem;
 }
 
 .side-card p {
     margin: 0;
-    color: #394d72;
+    color: var(--settings-muted);
     font-size: 0.83rem;
     line-height: 1.45;
 }
@@ -351,7 +433,7 @@ kbd {
 .side-card small {
     margin-top: 0.45rem;
     display: block;
-    color: #546687;
+    color: var(--settings-muted);
 }
 
 .side-actions {
@@ -374,21 +456,29 @@ kbd {
 @media (max-width: 1200px) {
     .settings-grid {
         grid-template-columns: 11rem minmax(0, 1fr);
+        grid-template-rows: minmax(0, 1fr) auto;
     }
 
     .settings-side {
         grid-column: span 2;
         grid-template-columns: repeat(2, minmax(0, 1fr));
+        max-height: none;
+        overflow: visible;
     }
 }
 
 @media (max-width: 920px) {
     .settings-frame {
         padding: 1rem;
+        overflow-y: auto;
     }
 
     .settings-grid {
-        grid-template-columns: minmax(0, 1fr);
+        display: flex;
+        flex-direction: column;
+        grid-template-columns: none;
+        grid-template-rows: none;
+        overflow-y: visible;
     }
 
     .settings-nav {
@@ -399,6 +489,12 @@ kbd {
 
     .settings-fields.two-col {
         grid-template-columns: minmax(0, 1fr);
+    }
+
+    .settings-main,
+    .settings-side {
+        max-height: none;
+        overflow: visible;
     }
 
     .settings-side {
