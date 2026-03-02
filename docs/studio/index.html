@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>JD.Writer Studio Lite</title>
-  <meta name="description" content="Client-only markdown studio for GitHub Pages." />
+  <meta name="description" content="Client-only markdown studio for GitHub Pages with optional local model and transcription support." />
   <link rel="stylesheet" href="./studio.css" />
 </head>
 <body>
@@ -13,14 +13,16 @@
     <header class="app-header">
       <div>
         <p class="eyebrow">JD.Writer Studio Lite</p>
-        <h1>Client-Only In-Browser Workspace</h1>
-        <p class="subtitle">Runs entirely on GitHub Pages with local storage and local AI heuristics.</p>
+        <h1>Client-Only Markdown Studio</h1>
+        <p class="subtitle">Three-pane workflow with optional WebLLM inference and browser speech transcription.</p>
       </div>
       <div class="header-pills">
         <span class="pill">Mode: <strong>client-only</strong></span>
         <span class="pill">Source: <strong id="source-pill">local</strong></span>
+        <span class="pill">Model: <strong id="model-pill">heuristic</strong></span>
+        <span class="pill">Voice: <strong id="voice-pill">ready</strong></span>
         <span class="pill">Notes: <strong id="note-count">0</strong></span>
-        <span class="pill">Shortcut: <strong>Ctrl+K</strong></span>
+        <span class="pill">Shortcuts: <strong>Ctrl+K / Ctrl+M</strong></span>
       </div>
     </header>
 
@@ -39,10 +41,46 @@
           <label for="note-title" class="visually-hidden">Note title</label>
           <input id="note-title" class="input title" type="text" placeholder="Untitled note" />
           <div class="action-row">
+            <button id="palette-button" class="button ghost" type="button">Palette</button>
+            <button id="insights-button" class="button ghost" type="button">Refresh</button>
+            <button id="voice-button" class="button ghost" type="button">Mic (Off)</button>
             <button id="continue-button" class="button" type="button">AI Continue</button>
             <button id="export-button" class="button ghost" type="button">Export</button>
-            <button id="insights-button" class="button ghost" type="button">Refresh Insights</button>
           </div>
+        </div>
+
+        <div class="runtime-strip">
+          <div class="runtime-grid">
+            <label class="runtime-field" for="model-select">
+              <span>Local model</span>
+              <select id="model-select" class="select">
+                <option value="Llama-3.2-3B-Instruct-q4f32_1-MLC">Llama 3.2 3B (Q4)</option>
+                <option value="Llama-3.1-8B-Instruct-q4f32_1-MLC">Llama 3.1 8B (Q4)</option>
+                <option value="Phi-3.5-mini-instruct-q4f16_1-MLC">Phi 3.5 mini (Q4)</option>
+                <option value="Qwen2.5-1.5B-Instruct-q4f16_1-MLC">Qwen 2.5 1.5B (Q4)</option>
+              </select>
+            </label>
+
+            <button id="model-load-button" class="button ghost" type="button">Load Model</button>
+
+            <label class="runtime-toggle" for="voice-raw-mode-toggle">
+              <input id="voice-raw-mode-toggle" type="checkbox" />
+              <span>Raw transcript mode</span>
+            </label>
+
+            <label class="runtime-toggle" for="voice-ai-cleanup-toggle">
+              <input id="voice-ai-cleanup-toggle" type="checkbox" />
+              <span>AI cleanup on final transcript</span>
+            </label>
+
+            <label class="runtime-field" for="voice-language">
+              <span>Voice language</span>
+              <input id="voice-language" class="input" type="text" placeholder="en-US" />
+            </label>
+          </div>
+          <p id="runtime-status" class="runtime-status" role="status" aria-live="polite">
+            Running with deterministic local heuristics.
+          </p>
         </div>
 
         <div class="editor-grid">
@@ -51,7 +89,7 @@
             <textarea id="note-content" spellcheck="true" placeholder="Start typing markdown..."></textarea>
             <div class="editor-hints">
               <button id="autocomplete-chip" class="chip" type="button" hidden></button>
-              <span class="hint-text">Use `/summarize`, `/outline`, `/action-items`, `Ctrl+J`, `Ctrl+Space`, `Ctrl+K`.</span>
+              <span class="hint-text">Use `/summarize`, `/outline`, `/action-items`, `Ctrl+J`, `Ctrl+Space`, `Ctrl+K`, `Ctrl+M`.</span>
             </div>
             <div id="slash-bar" class="slash-bar" hidden></div>
           </div>
@@ -62,8 +100,10 @@
               <select id="preview-theme" class="select">
                 <option value="studio">Studio</option>
                 <option value="paper">Paper</option>
+                <option value="solarized">Solarized</option>
                 <option value="terminal">Terminal</option>
                 <option value="noir">Noir</option>
+                <option value="blueprint">Blueprint</option>
               </select>
             </div>
             <div id="preview" class="preview theme-studio"></div>
@@ -72,17 +112,41 @@
       </section>
 
       <aside class="insights-pane panel">
-        <section class="tool-window">
-          <h2>Hints</h2>
+        <section class="tool-window tool-hints">
+          <header>
+            <h2>Hints</h2>
+            <small>Fast quality improvements for your current draft.</small>
+          </header>
           <ul id="hints-list"></ul>
         </section>
-        <section class="tool-window">
-          <h2>Help</h2>
+        <section class="tool-window tool-help">
+          <header>
+            <h2>Help</h2>
+            <small>Practical formatting and structure guidance.</small>
+          </header>
           <ul id="help-list"></ul>
         </section>
-        <section class="tool-window">
-          <h2>Brainstorm</h2>
+        <section class="tool-window tool-brainstorm">
+          <header>
+            <h2>Brainstorm</h2>
+            <small>New directions and creative next moves.</small>
+          </header>
           <ul id="brainstorm-list"></ul>
+        </section>
+        <section class="tool-window tool-voice">
+          <header>
+            <h2>Voice Review</h2>
+            <small>Recent transcript events and cleanup operations.</small>
+          </header>
+          <ul id="voice-review-list"></ul>
+        </section>
+        <section class="tool-window tool-model">
+          <header>
+            <h2>Model Console</h2>
+            <small>WebLLM runtime readiness and diagnostics.</small>
+          </header>
+          <p id="model-status-detail" class="console-detail">Model runtime is not loaded.</p>
+          <ul id="model-diagnostics"></ul>
         </section>
       </aside>
     </main>
