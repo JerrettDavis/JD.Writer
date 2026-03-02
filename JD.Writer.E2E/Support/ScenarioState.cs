@@ -18,6 +18,8 @@ internal sealed class ScenarioState
     public string? ProviderPreference { get; set; }
     public bool? OllamaConfigured { get; set; }
     public bool? OpenAiConfigured { get; set; }
+    public List<string> ProviderOrder { get; } = [];
+    public bool HasHardwareProfile { get; set; }
     public int? EditorLengthBeforeAction { get; set; }
     public string WebBaseUrl { get; set; } = TestHostManager.WebBaseUrl;
 }

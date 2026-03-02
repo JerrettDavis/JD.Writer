@@ -3,6 +3,28 @@
     --app-bg: #e9eff8;
     --app-text: #111827;
     --app-link: #1a345f;
+    --tool-panel-bg: linear-gradient(180deg, rgba(252, 253, 255, 0.95), rgba(248, 251, 255, 0.92));
+    --tool-panel-border: rgba(16, 18, 31, 0.1);
+    --tool-panel-header-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(247, 251, 255, 0.88));
+    --tool-secondary-text: #546482;
+    --panel-item-bg: linear-gradient(178deg, rgba(255, 255, 255, 0.96), rgba(246, 250, 255, 0.92));
+    --panel-item-border: rgba(16, 18, 31, 0.1);
+    --panel-heading-text: #1a2e4f;
+    --panel-metric-text: #223759;
+    --panel-event-text: #324a6e;
+    --panel-detail-text: #253857;
+    --voice-secondary-text: #5a6f92;
+    --voice-recording-card-bg: rgba(248, 251, 255, 0.94);
+    --voice-recording-card-border: rgba(16, 18, 31, 0.12);
+    --voice-recording-title: #1b2f55;
+    --voice-recording-meta: #4f617f;
+    --voice-recording-warning: #7a5f1f;
+    --voice-unit-text: #30486d;
+    --voice-unit-bg: rgba(239, 245, 255, 0.86);
+    --voice-unit-border: rgba(16, 18, 31, 0.16);
+    --voice-input-text: #203153;
+    --voice-input-bg: rgba(255, 255, 255, 0.95);
+    --voice-input-border: rgba(16, 18, 31, 0.18);
 }
 
 * {
@@ -38,6 +60,28 @@ a {
         --app-bg: #070c16;
         --app-text: #e2e9f8;
         --app-link: #a8c9ff;
+        --tool-panel-bg: linear-gradient(180deg, rgba(9, 20, 35, 0.94), rgba(11, 24, 42, 0.86));
+        --tool-panel-border: rgba(137, 164, 209, 0.26);
+        --tool-panel-header-bg: linear-gradient(180deg, rgba(17, 33, 56, 0.78), rgba(12, 23, 39, 0.52));
+        --tool-secondary-text: #9db0d2;
+        --panel-item-bg: rgba(13, 27, 46, 0.84);
+        --panel-item-border: rgba(137, 164, 209, 0.24);
+        --panel-heading-text: #d5e5ff;
+        --panel-metric-text: #c9dbfa;
+        --panel-event-text: #b8cdea;
+        --panel-detail-text: #d1e1fb;
+        --voice-secondary-text: #a9bddf;
+        --voice-recording-card-bg: rgba(11, 23, 40, 0.82);
+        --voice-recording-card-border: rgba(137, 164, 209, 0.3);
+        --voice-recording-title: #e1ebff;
+        --voice-recording-meta: #a9bddf;
+        --voice-recording-warning: #f2d48f;
+        --voice-unit-text: #d3e5ff;
+        --voice-unit-bg: rgba(19, 34, 57, 0.9);
+        --voice-unit-border: rgba(137, 164, 209, 0.3);
+        --voice-input-text: #dbe6ff;
+        --voice-input-bg: rgba(16, 30, 50, 0.88);
+        --voice-input-border: rgba(137, 164, 209, 0.35);
     }
 }
 
@@ -46,6 +90,28 @@ a {
     --app-bg: #e9eff8;
     --app-text: #111827;
     --app-link: #1a345f;
+    --tool-panel-bg: linear-gradient(180deg, rgba(252, 253, 255, 0.95), rgba(248, 251, 255, 0.92));
+    --tool-panel-border: rgba(16, 18, 31, 0.1);
+    --tool-panel-header-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(247, 251, 255, 0.88));
+    --tool-secondary-text: #546482;
+    --panel-item-bg: linear-gradient(178deg, rgba(255, 255, 255, 0.96), rgba(246, 250, 255, 0.92));
+    --panel-item-border: rgba(16, 18, 31, 0.1);
+    --panel-heading-text: #1a2e4f;
+    --panel-metric-text: #223759;
+    --panel-event-text: #324a6e;
+    --panel-detail-text: #253857;
+    --voice-secondary-text: #5a6f92;
+    --voice-recording-card-bg: rgba(248, 251, 255, 0.94);
+    --voice-recording-card-border: rgba(16, 18, 31, 0.12);
+    --voice-recording-title: #1b2f55;
+    --voice-recording-meta: #4f617f;
+    --voice-recording-warning: #7a5f1f;
+    --voice-unit-text: #30486d;
+    --voice-unit-bg: rgba(239, 245, 255, 0.86);
+    --voice-unit-border: rgba(16, 18, 31, 0.16);
+    --voice-input-text: #203153;
+    --voice-input-bg: rgba(255, 255, 255, 0.95);
+    --voice-input-border: rgba(16, 18, 31, 0.18);
 }
 
 :root[data-site-theme="dark"] {
@@ -53,6 +119,28 @@ a {
     --app-bg: #070c16;
     --app-text: #e2e9f8;
     --app-link: #a8c9ff;
+    --tool-panel-bg: linear-gradient(180deg, rgba(9, 20, 35, 0.94), rgba(11, 24, 42, 0.86));
+    --tool-panel-border: rgba(137, 164, 209, 0.26);
+    --tool-panel-header-bg: linear-gradient(180deg, rgba(17, 33, 56, 0.78), rgba(12, 23, 39, 0.52));
+    --tool-secondary-text: #9db0d2;
+    --panel-item-bg: rgba(13, 27, 46, 0.84);
+    --panel-item-border: rgba(137, 164, 209, 0.24);
+    --panel-heading-text: #d5e5ff;
+    --panel-metric-text: #c9dbfa;
+    --panel-event-text: #b8cdea;
+    --panel-detail-text: #d1e1fb;
+    --voice-secondary-text: #a9bddf;
+    --voice-recording-card-bg: rgba(11, 23, 40, 0.82);
+    --voice-recording-card-border: rgba(137, 164, 209, 0.3);
+    --voice-recording-title: #e1ebff;
+    --voice-recording-meta: #a9bddf;
+    --voice-recording-warning: #f2d48f;
+    --voice-unit-text: #d3e5ff;
+    --voice-unit-bg: rgba(19, 34, 57, 0.9);
+    --voice-unit-border: rgba(137, 164, 209, 0.3);
+    --voice-input-text: #dbe6ff;
+    --voice-input-bg: rgba(16, 30, 50, 0.88);
+    --voice-input-border: rgba(137, 164, 209, 0.35);
 }
 
 :root[data-reduce-motion="true"] *,

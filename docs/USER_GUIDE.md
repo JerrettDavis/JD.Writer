@@ -52,10 +52,17 @@ Open `/settings` (or use `Open settings` from command palette) to manage:
 
 - site theme and motion preferences
 - editor and AI behavior defaults
+- local model readiness wizard (provider strategy, path selection, diagnostics, live probe)
 - voice capture/transcript options
 - plugin loading policy
 - local storage ceilings and safety controls
 - settings import/export/reset operations
+
+The local model wizard guides setup in four steps:
+1. Choose provider strategy (`auto`, `native`, `local`, etc.)
+2. Provide runtime/model paths (or leave blank for auto-discovery)
+3. Refresh readiness diagnostics from `/ai/provider-summary`
+4. Run a live continuation probe and verify the reported source
 
 ## History, Layering, and QC
 

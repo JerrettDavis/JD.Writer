@@ -2,7 +2,7 @@
 
 This guide documents JD.Writer API behavior for local development and integrations.
 
-Base URL (default local): `http://localhost:5081`
+Base URL (default local): `http://localhost:19081` (E2E/test host) or `http://localhost:5319` (direct `dotnet run`)
 
 ## Endpoints
 
@@ -14,8 +14,7 @@ Request body:
 
 ```json
 {
-  "text": "# Draft title\nExisting content...",
-  "cursorPosition": 42
+  "draft": "# Draft title\nExisting content..."
 }
 ```
 
@@ -23,7 +22,8 @@ Response body:
 
 ```json
 {
-  "continuation": "\n\n## Next Steps\n..."
+  "continuation": "\n\n## Next Steps\n...",
+  "source": "ollama"
 }
 ```
 
@@ -36,7 +36,8 @@ Request body:
 ```json
 {
   "command": "summarize",
-  "text": "Long markdown content..."
+  "draft": "Long markdown content...",
+  "prompt": "Optional custom prompt override"
 }
 ```
 
@@ -44,7 +45,8 @@ Response body:
 
 ```json
 {
-  "output": "Short summary..."
+  "output": "Short summary...",
+  "source": "native-llama-cpu"
 }
 ```
 
@@ -56,8 +58,9 @@ Request body:
 
 ```json
 {
-  "text": "Current note text...",
-  "panel": "hints"
+  "mode": "hints",
+  "draft": "Current note text...",
+  "prompt": "Optional panel prompt override"
 }
 ```
 
@@ -68,13 +71,18 @@ Response content type:
 Example chunks:
 
 ```json
-{"item":"Consider adding an explicit goal statement."}
-{"item":"Split this section into short bullets for readability."}
+{"text":"Consider adding an explicit goal statement.","source":"ollama"}
+{"text":"Split this section into short bullets for readability.","source":"native-llama-gpu"}
 ```
 
 ## `GET /ai/provider-summary`
 
-Returns active provider preference and readiness diagnostics (including Ollama readiness).
+Returns active provider preference and readiness diagnostics:
+- openai configured status
+- ollama model/endpoint readiness inputs
+- native llama chain configuration
+- hardware scan summary (GPU names + preferred acceleration)
+- active runtime provider order
 
 ## Provider Configuration
 
@@ -82,27 +90,37 @@ Primary configuration file: `JD.Writer.ApiService/appsettings.json`
 
 Key settings:
 
-- `AI:Provider`: `auto`, `ollama`, `openai`, `fallback`
+- `AI:Provider`: `auto`, `ollama`, `native`, `local`, `openai`, `fallback`
 - `AI:Ollama:Endpoint`: Ollama URL
 - `AI:Ollama:Model`: model name
 - `AI:OpenAI:ApiKey`: OpenAI API key (optional)
+- `AI:NativeLlama:Enabled`: enable native llama chain (default `true`)
+- `AI:NativeLlama:CliPath`: full path to `llama-cli`/`main` executable
+- `AI:NativeLlama:ModelDirectory`: optional directory scanned for `.gguf` models
+- `AI:NativeLlama:GpuModelPath`: GGUF model path for GPU-capable runs
+- `AI:NativeLlama:CpuModelPath`: GGUF model path for CPU fallback runs
+- `AI:NativeLlama:ContextSize`, `MaxTokens`, `Threads`, `GpuLayers`, `Temperature`, `TimeoutSeconds`
+
+Auto-discovery behavior:
+- If `CliPath` is empty, runtime probes `PATH` for `llama-cli`, `main`, or `llamafile`.
+- If `GpuModelPath`/`CpuModelPath` are empty, runtime probes `ModelDirectory` then common local roots for `.gguf`.
 
 ## Curl Quick Checks
 
 ```bash
-curl -sS http://localhost:5081/ai/provider-summary
+curl -sS http://localhost:5319/ai/provider-summary
 ```
 
 ```bash
-curl -sS -X POST http://localhost:5081/ai/continue \
+curl -sS -X POST http://localhost:5319/ai/continue \
   -H "Content-Type: application/json" \
-  -d "{\"text\":\"Draft intro\",\"cursorPosition\":11}"
+  -d "{\"draft\":\"Draft intro\"}"
 ```
 
 ```bash
-curl -N -X POST http://localhost:5081/ai/assist/stream \
+curl -N -X POST http://localhost:5319/ai/assist/stream \
   -H "Content-Type: application/json" \
-  -d "{\"text\":\"Draft intro\",\"panel\":\"hints\"}"
+  -d "{\"mode\":\"hints\",\"draft\":\"Draft intro\"}"
 ```
 
 ## Reference API Docs

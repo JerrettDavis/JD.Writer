@@ -37,6 +37,28 @@ Feature: Studio acceptance criteria
     Then settings theme preference should be "dark"
     And document site theme should be "dark"
 
+  Scenario: Settings page persists voice interpretation scale
+    Given JD.Writer is running for e2e tests
+    When I open the settings page
+    And I choose settings voice mode "raw"
+    And I set settings voice chunk length to 320
+    And I set settings voice chunk overlap to 50
+    And I save settings
+    And I reload the page
+    Then settings voice mode should be "raw"
+    And settings voice chunk length should be 320
+    And settings voice chunk overlap should be 50
+
+  Scenario: Local model readiness wizard guides setup steps
+    Given JD.Writer is running for e2e tests
+    When I open the settings page
+    Then local model wizard should be visible
+    When I advance local model wizard step
+    Then local model wizard step label should contain "Step 2 of"
+    When I advance local model wizard step
+    And I refresh local readiness diagnostics
+    Then local readiness badge should be visible
+
   Scenario: Corrupted local state is recovered without a circuit crash
     Given JD.Writer is running for e2e tests
     When I open the studio home page
@@ -114,6 +136,29 @@ Feature: Studio acceptance criteria
     And I inject voice transcript "voice cleanup should run"
     Then local state should include voice transcript and cleanup operations
 
+  Scenario: Voice raw mode bypasses AI cleanup operations
+    Given JD.Writer is running for e2e tests
+    When I open the studio home page
+    And I enable voice test mode
+    And I enable raw transcription mode in voice console
+    And I place cursor at the end of the editor
+    And I toggle voice capture with keyboard
+    And I finalize voice transcript "raw mode should keep this exact phrase"
+    Then the editor should contain "raw mode should keep this exact phrase"
+    And local state should include voice transcript without cleanup operations
+
+  Scenario: Voice recordings are persisted for playback and review
+    Given JD.Writer is running for e2e tests
+    When I open the studio home page
+    And I enable voice test mode
+    And I place cursor at the end of the editor
+    And I toggle voice capture with keyboard
+    And I inject interim voice transcript "record this for playback"
+    And I finalize voice transcript "record this for playback"
+    And I toggle voice capture with keyboard
+    Then voice recording list should contain at least 1 recording
+    And local state should include voice recording artifacts
+
   Scenario: Voice recordings are reviewable in persisted audit logs
     Given JD.Writer is running for e2e tests
     When I open the studio home page
@@ -150,6 +195,13 @@ Feature: Studio acceptance criteria
     When I request API provider summary
     Then provider preference should be "ollama"
     And ollama should be configured
+
+  Scenario: Runtime provider summary includes native local fallback chain
+    Given JD.Writer is running for e2e tests
+    When I request runtime API provider summary
+    Then provider order should include "native-llama-gpu"
+    And provider order should include "native-llama-cpu"
+    And provider summary should include hardware profile
 
   Scenario: AI API continue and slash endpoints return content
     Given JD.Writer is running for e2e tests

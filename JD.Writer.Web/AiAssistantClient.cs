@@ -6,6 +6,7 @@ namespace JD.Writer.Web;
 
 public sealed class AiAssistantClient
 {
+    private static readonly TimeSpan ProviderSummaryTimeout = TimeSpan.FromSeconds(8);
     private static readonly TimeSpan RemoteContinueTimeout = TimeSpan.FromSeconds(12);
     private static readonly TimeSpan RemoteSlashTimeout = TimeSpan.FromSeconds(12);
     private static readonly TimeSpan RemoteStreamTimeout = TimeSpan.FromSeconds(15);
@@ -117,6 +118,45 @@ public sealed class AiAssistantClient
         }
 
         return BuildLocalSlashResponse(request.Command, draft, source: "fallback-local");
+    }
+
+    public async Task<ProviderSummaryResult> GetProviderSummaryAsync(CancellationToken cancellationToken = default)
+    {
+        if (UseLocalOnly())
+        {
+            return new ProviderSummaryResult(
+                IsReachable: false,
+                Source: "local-client-only",
+                Summary: BuildLocalProviderSummary(),
+                ErrorMessage: "AI API is disabled in client-only mode.");
+        }
+
+        try
+        {
+            using var linkedCts = CreateLinkedTimeoutTokenSource(cancellationToken, ProviderSummaryTimeout);
+            using var response = await _httpClient.GetAsync("/ai/provider-summary", linkedCts.Token);
+            response.EnsureSuccessStatusCode();
+
+            var payload = await response.Content.ReadFromJsonAsync<ProviderSummaryResponse>(JsonOptions, linkedCts.Token);
+            if (payload is not null)
+            {
+                return new ProviderSummaryResult(
+                    IsReachable: true,
+                    Source: "api",
+                    Summary: payload,
+                    ErrorMessage: null);
+            }
+        }
+        catch (Exception exception) when (IsRecoverable(exception, cancellationToken))
+        {
+            _logger.LogDebug(exception, "Provider summary lookup failed.");
+        }
+
+        return new ProviderSummaryResult(
+            IsReachable: false,
+            Source: "fallback-local",
+            Summary: BuildLocalProviderSummary(),
+            ErrorMessage: "Could not reach /ai/provider-summary.");
     }
 
     private static string NormalizeMode(string? configuredMode)
@@ -297,6 +337,24 @@ public sealed class AiAssistantClient
 
         return draft.Length <= maxLength ? draft : draft[^maxLength..];
     }
+
+    private static ProviderSummaryResponse BuildLocalProviderSummary()
+    {
+        return new ProviderSummaryResponse(
+            Preference: "local",
+            OpenAiConfigured: false,
+            OllamaConfigured: false,
+            OllamaEndpoint: null,
+            OllamaModel: null,
+            NativeLlamaEnabled: false,
+            NativeLlamaConfigured: false,
+            NativeLlamaModelDirectory: null,
+            NativeLlamaCliPath: null,
+            NativeLlamaGpuModelPath: null,
+            NativeLlamaCpuModelPath: null,
+            Hardware: new ProviderHardwareProfile(false, "unknown", [], ["client-only"]),
+            ProviderOrder: ["local-fallback"]);
+    }
 }
 
 public sealed record ContinueDraftRequest(string Draft);
@@ -305,3 +363,23 @@ public sealed record AssistStreamRequest(string Mode, string Draft, string? Prom
 public sealed record AssistStreamChunk(string Text, string Source);
 public sealed record SlashCommandRequest(string Command, string Draft, string? Prompt);
 public sealed record SlashCommandResponse(string Output, string Source);
+public sealed record ProviderSummaryResult(bool IsReachable, string Source, ProviderSummaryResponse Summary, string? ErrorMessage);
+public sealed record ProviderSummaryResponse(
+    string Preference,
+    bool OpenAiConfigured,
+    bool OllamaConfigured,
+    string? OllamaEndpoint,
+    string? OllamaModel,
+    bool NativeLlamaEnabled,
+    bool NativeLlamaConfigured,
+    string? NativeLlamaModelDirectory,
+    string? NativeLlamaCliPath,
+    string? NativeLlamaGpuModelPath,
+    string? NativeLlamaCpuModelPath,
+    ProviderHardwareProfile? Hardware,
+    IReadOnlyList<string>? ProviderOrder);
+public sealed record ProviderHardwareProfile(
+    bool HasSupportedGpu,
+    string PreferredAcceleration,
+    IReadOnlyList<string>? GpuNames,
+    IReadOnlyList<string>? Notes);

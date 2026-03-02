@@ -9,6 +9,105 @@
     --cyan-400: #36d0d0;
     --lime-400: #b9d85a;
     --amber-300: #f2b45b;
+    --tool-panel-bg: linear-gradient(180deg, rgba(252, 253, 255, 0.95), rgba(248, 251, 255, 0.92));
+    --tool-panel-border: rgba(16, 18, 31, 0.1);
+    --tool-panel-header-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(247, 251, 255, 0.88));
+    --tool-secondary-text: #546482;
+    --panel-item-bg: linear-gradient(178deg, rgba(255, 255, 255, 0.96), rgba(246, 250, 255, 0.92));
+    --panel-item-border: rgba(16, 18, 31, 0.1);
+    --panel-heading-text: #1a2e4f;
+    --panel-metric-text: #223759;
+    --panel-event-text: #324a6e;
+    --panel-detail-text: #253857;
+    --voice-secondary-text: #5a6f92;
+    --voice-recording-card-bg: rgba(248, 251, 255, 0.94);
+    --voice-recording-card-border: rgba(16, 18, 31, 0.12);
+    --voice-recording-title: #1b2f55;
+    --voice-recording-meta: #4f617f;
+    --voice-recording-warning: #7a5f1f;
+    --voice-unit-text: #30486d;
+    --voice-unit-bg: rgba(239, 245, 255, 0.86);
+    --voice-unit-border: rgba(16, 18, 31, 0.16);
+    --voice-input-text: #203153;
+    --voice-input-bg: rgba(255, 255, 255, 0.95);
+    --voice-input-border: rgba(16, 18, 31, 0.18);
+}
+
+:root[data-site-theme="light"] {
+    --tool-panel-bg: linear-gradient(180deg, rgba(252, 253, 255, 0.95), rgba(248, 251, 255, 0.92));
+    --tool-panel-border: rgba(16, 18, 31, 0.1);
+    --tool-panel-header-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(247, 251, 255, 0.88));
+    --tool-secondary-text: #546482;
+    --panel-item-bg: linear-gradient(178deg, rgba(255, 255, 255, 0.96), rgba(246, 250, 255, 0.92));
+    --panel-item-border: rgba(16, 18, 31, 0.1);
+    --panel-heading-text: #1a2e4f;
+    --panel-metric-text: #223759;
+    --panel-event-text: #324a6e;
+    --panel-detail-text: #253857;
+    --voice-secondary-text: #5a6f92;
+    --voice-recording-card-bg: rgba(248, 251, 255, 0.94);
+    --voice-recording-card-border: rgba(16, 18, 31, 0.12);
+    --voice-recording-title: #1b2f55;
+    --voice-recording-meta: #4f617f;
+    --voice-recording-warning: #7a5f1f;
+    --voice-unit-text: #30486d;
+    --voice-unit-bg: rgba(239, 245, 255, 0.86);
+    --voice-unit-border: rgba(16, 18, 31, 0.16);
+    --voice-input-text: #203153;
+    --voice-input-bg: rgba(255, 255, 255, 0.95);
+    --voice-input-border: rgba(16, 18, 31, 0.18);
+}
+
+:root[data-site-theme="dark"] {
+    --tool-panel-bg: linear-gradient(180deg, rgba(9, 20, 35, 0.94), rgba(11, 24, 42, 0.86));
+    --tool-panel-border: rgba(137, 164, 209, 0.26);
+    --tool-panel-header-bg: linear-gradient(180deg, rgba(17, 33, 56, 0.78), rgba(12, 23, 39, 0.52));
+    --tool-secondary-text: #9db0d2;
+    --panel-item-bg: rgba(13, 27, 46, 0.84);
+    --panel-item-border: rgba(137, 164, 209, 0.24);
+    --panel-heading-text: #d5e5ff;
+    --panel-metric-text: #c9dbfa;
+    --panel-event-text: #b8cdea;
+    --panel-detail-text: #d1e1fb;
+    --voice-secondary-text: #a9bddf;
+    --voice-recording-card-bg: rgba(11, 23, 40, 0.82);
+    --voice-recording-card-border: rgba(137, 164, 209, 0.3);
+    --voice-recording-title: #e1ebff;
+    --voice-recording-meta: #a9bddf;
+    --voice-recording-warning: #f2d48f;
+    --voice-unit-text: #d3e5ff;
+    --voice-unit-bg: rgba(19, 34, 57, 0.9);
+    --voice-unit-border: rgba(137, 164, 209, 0.3);
+    --voice-input-text: #dbe6ff;
+    --voice-input-bg: rgba(16, 30, 50, 0.88);
+    --voice-input-border: rgba(137, 164, 209, 0.35);
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-site-theme="light"]):not([data-site-theme="dark"]) {
+        --tool-panel-bg: linear-gradient(180deg, rgba(9, 20, 35, 0.94), rgba(11, 24, 42, 0.86));
+        --tool-panel-border: rgba(137, 164, 209, 0.26);
+        --tool-panel-header-bg: linear-gradient(180deg, rgba(17, 33, 56, 0.78), rgba(12, 23, 39, 0.52));
+        --tool-secondary-text: #9db0d2;
+        --panel-item-bg: rgba(13, 27, 46, 0.84);
+        --panel-item-border: rgba(137, 164, 209, 0.24);
+        --panel-heading-text: #d5e5ff;
+        --panel-metric-text: #c9dbfa;
+        --panel-event-text: #b8cdea;
+        --panel-detail-text: #d1e1fb;
+        --voice-secondary-text: #a9bddf;
+        --voice-recording-card-bg: rgba(11, 23, 40, 0.82);
+        --voice-recording-card-border: rgba(137, 164, 209, 0.3);
+        --voice-recording-title: #e1ebff;
+        --voice-recording-meta: #a9bddf;
+        --voice-recording-warning: #f2d48f;
+        --voice-unit-text: #d3e5ff;
+        --voice-unit-bg: rgba(19, 34, 57, 0.9);
+        --voice-unit-border: rgba(137, 164, 209, 0.3);
+        --voice-input-text: #dbe6ff;
+        --voice-input-bg: rgba(16, 30, 50, 0.88);
+        --voice-input-border: rgba(137, 164, 209, 0.35);
+    }
 }
 
 .icon {
@@ -273,6 +372,10 @@
 
 .icon-pill.key {
     color: #a57122;
+}
+
+.icon-pill.audio {
+    color: #2c6cb0;
 }
 
 .icon-pill.settings {
@@ -970,11 +1073,16 @@ button {
     min-height: 10.4rem;
     display: flex;
     flex-direction: column;
+    box-shadow: 0 16px 34px -28px rgba(12, 20, 36, 0.45);
+    overflow: hidden;
+    position: relative;
 }
 
 .tool-window header {
     border-bottom: 1px solid rgba(16, 18, 31, 0.08);
     padding: 0.66rem 0.75rem;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(247, 251, 255, 0.88));
+    position: relative;
 }
 
 .tool-window h2 {
@@ -983,19 +1091,24 @@ button {
     font-size: 1.08rem;
     font-weight: 550;
     color: #192643;
+    letter-spacing: 0.01em;
 }
 
 .tool-window small {
-    color: #546482;
+    color: var(--tool-secondary-text);
+    display: block;
+    margin-top: 0.18rem;
+    line-height: 1.35;
 }
 
 .tool-window ul {
     margin: 0;
-    padding: 0.7rem 0.8rem 0.85rem 1.5rem;
+    padding: 0.72rem;
     display: grid;
     gap: 0.52rem;
     overflow-y: auto;
     min-height: 7rem;
+    list-style: none;
 }
 
 .tool-window li {
@@ -1008,6 +1121,260 @@ button {
 .tool-window li.skeleton-row {
     list-style: none;
     margin-left: -0.6rem;
+}
+
+.tool-panel {
+    --panel-accent: #2f6db2;
+    --panel-soft: rgba(47, 109, 178, 0.1);
+    background: var(--tool-panel-bg);
+    border-color: var(--tool-panel-border);
+}
+
+.tool-panel::after {
+    content: "";
+    position: absolute;
+    inset: 0.2rem 0.2rem auto auto;
+    width: 2.6rem;
+    height: 2.6rem;
+    border-radius: 999px;
+    background: radial-gradient(circle at center, var(--panel-soft), transparent 72%);
+    pointer-events: none;
+}
+
+.tool-panel header {
+    border-left: 4px solid var(--panel-accent);
+    padding-left: 0.65rem;
+    background: var(--tool-panel-header-bg);
+}
+
+.panel-hints {
+    --panel-accent: #266fb4;
+    --panel-soft: rgba(38, 111, 180, 0.14);
+}
+
+.panel-help {
+    --panel-accent: #22785f;
+    --panel-soft: rgba(34, 120, 95, 0.14);
+}
+
+.panel-brainstorm {
+    --panel-accent: #8b5cb8;
+    --panel-soft: rgba(139, 92, 184, 0.14);
+}
+
+.panel-history-qc {
+    --panel-accent: #9a5a1e;
+    --panel-soft: rgba(154, 90, 30, 0.14);
+}
+
+.panel-voice-review {
+    --panel-accent: #2f7ea5;
+    --panel-soft: rgba(47, 126, 165, 0.14);
+}
+
+.panel-voice-console {
+    --panel-accent: #2c6da8;
+    --panel-soft: rgba(44, 109, 168, 0.14);
+}
+
+.panel-open-questions {
+    --panel-accent: #a25221;
+    --panel-soft: rgba(162, 82, 33, 0.15);
+}
+
+.panel-risk-radar {
+    --panel-accent: #a13658;
+    --panel-soft: rgba(161, 54, 88, 0.14);
+}
+
+.panel-items {
+    gap: 0.5rem;
+}
+
+.panel-item {
+    border: 1px solid var(--panel-item-border);
+    border-left: 3px solid var(--panel-accent);
+    border-radius: 0.64rem;
+    background: var(--panel-item-bg);
+    padding: 0.5rem 0.58rem;
+    margin-left: 0;
+    list-style: none;
+}
+
+.panel-item-text {
+    display: block;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.panel-item-heading {
+    background: var(--panel-soft);
+    border-color: color-mix(in oklab, var(--panel-accent) 40%, white);
+    padding: 0.44rem 0.58rem;
+}
+
+.panel-item-heading .panel-item-text {
+    font-size: 0.73rem;
+    font-weight: 780;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--panel-heading-text);
+}
+
+.panel-item-metric {
+    background: linear-gradient(180deg, rgba(248, 252, 255, 0.95), rgba(243, 249, 255, 0.9));
+}
+
+.panel-item-metric .panel-item-text {
+    font-family: "JetBrains Mono", "Cascadia Code", "Consolas", monospace;
+    font-size: 0.77rem;
+    line-height: 1.48;
+    color: var(--panel-metric-text);
+}
+
+.panel-item-event {
+    border-left-width: 2px;
+    background: rgba(250, 252, 255, 0.9);
+}
+
+.panel-item-event .panel-item-text {
+    font-size: 0.81rem;
+    color: var(--panel-event-text);
+}
+
+.panel-item-detail .panel-item-text {
+    font-size: 0.84rem;
+    color: var(--panel-detail-text);
+}
+
+.tool-window.voice-console {
+    min-height: 14rem;
+}
+
+.voice-console-controls {
+    border-bottom: 1px solid rgba(16, 18, 31, 0.08);
+    display: grid;
+    gap: 0.48rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 0.72rem 0.76rem;
+}
+
+.voice-toggle {
+    align-items: center;
+    display: inline-flex;
+    gap: 0.4rem;
+    font-size: 0.79rem;
+    color: var(--voice-secondary-text);
+    font-weight: 680;
+}
+
+.voice-toggle input {
+    accent-color: #2b6cb5;
+}
+
+.voice-scale {
+    display: grid;
+    gap: 0.22rem;
+}
+
+.voice-scale span {
+    font-size: 0.73rem;
+    font-weight: 720;
+    color: var(--voice-secondary-text);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+}
+
+.voice-scale input {
+    border: 1px solid var(--voice-input-border);
+    border-radius: 0.5rem;
+    background: var(--voice-input-bg);
+    color: var(--voice-input-text);
+    font: inherit;
+    font-size: 0.78rem;
+    padding: 0.32rem 0.42rem;
+}
+
+.voice-scale-field {
+    align-items: center;
+    display: grid;
+    gap: 0.34rem;
+    grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.voice-unit {
+    border: 1px solid var(--voice-unit-border);
+    border-radius: 0.42rem;
+    background: var(--voice-unit-bg);
+    color: var(--voice-unit-text);
+    font-size: 0.71rem;
+    font-weight: 760;
+    letter-spacing: 0.04em;
+    padding: 0.2rem 0.38rem;
+    text-transform: uppercase;
+}
+
+.voice-scale small {
+    color: var(--voice-secondary-text);
+    font-size: 0.71rem;
+    line-height: 1.34;
+}
+
+.voice-recordings {
+    display: grid;
+    gap: 0.56rem;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 0.74rem;
+}
+
+.voice-recordings-empty {
+    margin: 0;
+    color: var(--voice-secondary-text);
+    font-size: 0.82rem;
+    line-height: 1.45;
+}
+
+.voice-recording-card {
+    border: 1px solid var(--voice-recording-card-border);
+    border-radius: 0.72rem;
+    background: var(--voice-recording-card-bg);
+    display: grid;
+    gap: 0.45rem;
+    padding: 0.56rem;
+}
+
+.voice-recording-meta {
+    display: grid;
+    gap: 0.22rem;
+}
+
+.voice-recording-meta strong {
+    color: var(--voice-recording-title);
+    font-size: 0.84rem;
+}
+
+.voice-recording-meta span {
+    color: var(--voice-recording-meta);
+    font-size: 0.75rem;
+}
+
+.voice-recording-meta em {
+    color: var(--voice-recording-warning);
+    font-size: 0.73rem;
+    font-style: normal;
+    font-weight: 690;
+}
+
+.voice-recording-card audio {
+    width: 100%;
+    height: 2rem;
+}
+
+.voice-recording-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.38rem;
 }
 
 .editor-command-row {
@@ -1270,6 +1637,10 @@ button {
         grid-column: auto;
         grid-template-columns: 1fr;
     }
+
+    .voice-console-controls {
+        grid-template-columns: minmax(0, 1fr);
+    }
 }
 
 .status-pill.live {
@@ -1284,7 +1655,7 @@ button {
 }
 
 @media (prefers-color-scheme: dark) {
-    :root {
+    :root:not([data-site-theme="light"]):not([data-site-theme="dark"]) {
         color-scheme: dark;
     }
 
@@ -1306,7 +1677,7 @@ button {
     .note-item time,
     .tool-window small,
     .tool-window li {
-        color: #9db0d2;
+        color: var(--tool-secondary-text);
     }
 
     .icon-field {
@@ -1419,6 +1790,73 @@ button {
         border-color: rgba(137, 164, 209, 0.4);
         color: #a4bce2;
         background: rgba(11, 22, 39, 0.55);
+    }
+
+    .voice-toggle,
+    .voice-scale span,
+    .voice-scale small,
+    .voice-recording-meta span,
+    .voice-recordings-empty {
+        color: var(--voice-secondary-text);
+    }
+
+    .voice-recording-card {
+        border-color: var(--voice-recording-card-border);
+        background: var(--voice-recording-card-bg);
+    }
+
+    .voice-recording-meta strong {
+        color: var(--voice-recording-title);
+    }
+
+    .voice-recording-meta em {
+        color: var(--voice-recording-warning);
+    }
+
+    .tool-panel {
+        background: var(--tool-panel-bg);
+        border-color: var(--tool-panel-border);
+    }
+
+    .tool-panel header {
+        background: var(--tool-panel-header-bg);
+    }
+
+    .panel-item {
+        border-color: var(--panel-item-border);
+        background: var(--panel-item-bg);
+    }
+
+    .panel-item-heading {
+        background: color-mix(in oklab, var(--panel-soft) 68%, rgba(10, 22, 38, 0.75));
+    }
+
+    .panel-item-heading .panel-item-text {
+        color: var(--panel-heading-text);
+    }
+
+    .panel-item-metric .panel-item-text {
+        color: var(--panel-metric-text);
+    }
+
+    .panel-item-event .panel-item-text {
+        color: var(--panel-event-text);
+    }
+
+    .panel-item-detail .panel-item-text {
+        color: var(--panel-detail-text);
+    }
+
+    .voice-scale input {
+        color: var(--voice-input-text);
+        border-color: var(--voice-input-border);
+        background: var(--voice-input-bg);
+    }
+
+    .voice-unit {
+        color: var(--voice-unit-text);
+        border-color: var(--voice-unit-border);
+        background: var(--voice-unit-bg);
     }
 
     .panel-loader {

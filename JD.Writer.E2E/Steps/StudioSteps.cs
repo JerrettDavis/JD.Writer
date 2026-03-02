@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using System.Globalization;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.Playwright;
@@ -64,6 +65,18 @@ public sealed class StudioSteps
     {
         var page = _scenarioContext.GetState().Page!;
         await page.EvaluateAsync("window.JDWriterStudio.setDictationTestMode(true)");
+    }
+
+    [When("I enable raw transcription mode in voice console")]
+    public async Task WhenIEnableRawTranscriptionModeInVoiceConsole()
+    {
+        var page = _scenarioContext.GetState().Page!;
+        var toggle = page.Locator("[data-testid='voice-raw-mode-toggle']");
+        if (!await toggle.IsCheckedAsync())
+        {
+            await toggle.CheckAsync();
+            await page.WaitForTimeoutAsync(120);
+        }
     }
 
     [When("I place cursor at the end of the editor")]
@@ -321,6 +334,88 @@ public sealed class StudioSteps
         await Assertions.Expect(page.Locator("[data-testid='settings-theme']")).ToHaveValueAsync(theme);
     }
 
+    [When(@"I choose settings voice mode ""(.*)""")]
+    public async Task WhenIChooseSettingsVoiceMode(string mode)
+    {
+        var page = _scenarioContext.GetState().Page!;
+        await page.Locator("[data-testid='settings-voice-mode']").SelectOptionAsync(mode);
+        await page.WaitForTimeoutAsync(120);
+    }
+
+    [When(@"I set settings voice chunk length to (\d+)")]
+    public async Task WhenISetSettingsVoiceChunkLengthTo(int chunkLength)
+    {
+        var page = _scenarioContext.GetState().Page!;
+        await page.Locator("[data-testid='settings-voice-chunk-length']").FillAsync(chunkLength.ToString(CultureInfo.InvariantCulture));
+        await page.WaitForTimeoutAsync(120);
+    }
+
+    [When(@"I set settings voice chunk overlap to (\d+)")]
+    public async Task WhenISetSettingsVoiceChunkOverlapTo(int chunkOverlap)
+    {
+        var page = _scenarioContext.GetState().Page!;
+        await page.Locator("[data-testid='settings-voice-chunk-overlap']").FillAsync(chunkOverlap.ToString(CultureInfo.InvariantCulture));
+        await page.WaitForTimeoutAsync(120);
+    }
+
+    [Then(@"settings voice mode should be ""(.*)""")]
+    public async Task ThenSettingsVoiceModeShouldBe(string mode)
+    {
+        var page = _scenarioContext.GetState().Page!;
+        await Assertions.Expect(page.Locator("[data-testid='settings-voice-mode']")).ToHaveValueAsync(mode);
+    }
+
+    [Then(@"settings voice chunk length should be (\d+)")]
+    public async Task ThenSettingsVoiceChunkLengthShouldBe(int chunkLength)
+    {
+        var page = _scenarioContext.GetState().Page!;
+        await Assertions.Expect(page.Locator("[data-testid='settings-voice-chunk-length']")).ToHaveValueAsync(chunkLength.ToString(CultureInfo.InvariantCulture));
+    }
+
+    [Then(@"settings voice chunk overlap should be (\d+)")]
+    public async Task ThenSettingsVoiceChunkOverlapShouldBe(int chunkOverlap)
+    {
+        var page = _scenarioContext.GetState().Page!;
+        await Assertions.Expect(page.Locator("[data-testid='settings-voice-chunk-overlap']")).ToHaveValueAsync(chunkOverlap.ToString(CultureInfo.InvariantCulture));
+    }
+
+    [Then("local model wizard should be visible")]
+    public async Task ThenLocalModelWizardShouldBeVisible()
+    {
+        var page = _scenarioContext.GetState().Page!;
+        await Assertions.Expect(page.Locator("[data-testid='local-readiness-wizard']")).ToBeVisibleAsync();
+    }
+
+    [When("I advance local model wizard step")]
+    public async Task WhenIAdvanceLocalModelWizardStep()
+    {
+        var page = _scenarioContext.GetState().Page!;
+        await page.Locator("[data-testid='local-wizard-next']").ClickAsync();
+        await page.WaitForTimeoutAsync(150);
+    }
+
+    [Then(@"local model wizard step label should contain ""(.*)""")]
+    public async Task ThenLocalModelWizardStepLabelShouldContain(string expected)
+    {
+        var page = _scenarioContext.GetState().Page!;
+        await Assertions.Expect(page.Locator("[data-testid='local-wizard-step-label']")).ToContainTextAsync(expected);
+    }
+
+    [When("I refresh local readiness diagnostics")]
+    public async Task WhenIRefreshLocalReadinessDiagnostics()
+    {
+        var page = _scenarioContext.GetState().Page!;
+        await page.Locator("[data-testid='local-readiness-refresh']").ClickAsync();
+        await page.WaitForTimeoutAsync(250);
+    }
+
+    [Then("local readiness badge should be visible")]
+    public async Task ThenLocalReadinessBadgeShouldBeVisible()
+    {
+        var page = _scenarioContext.GetState().Page!;
+        await Assertions.Expect(page.Locator("[data-testid='local-readiness-badge']")).ToBeVisibleAsync();
+    }
+
     [Then(@"document site theme should be ""(.*)""")]
     public async Task ThenDocumentSiteThemeShouldBe(string expectedTheme)
     {
@@ -464,19 +559,25 @@ public sealed class StudioSteps
     [When("I request API provider summary")]
     public async Task WhenIRequestApiProviderSummary()
     {
-        var state = _scenarioContext.GetState();
-
         using var client = CreateApiClient();
         using var response = await client.GetAsync("/");
         response.EnsureSuccessStatusCode();
 
         await using var stream = await response.Content.ReadAsStreamAsync();
         using var json = await JsonDocument.ParseAsync(stream);
+        ParseProviderSummary(json.RootElement.GetProperty("providerSummary"));
+    }
 
-        var summary = json.RootElement.GetProperty("providerSummary");
-        state.ProviderPreference = summary.GetProperty("preference").GetString();
-        state.OllamaConfigured = summary.GetProperty("ollamaConfigured").GetBoolean();
-        state.OpenAiConfigured = summary.GetProperty("openAiConfigured").GetBoolean();
+    [When("I request runtime API provider summary")]
+    public async Task WhenIRequestRuntimeApiProviderSummary()
+    {
+        using var client = CreateApiClient();
+        using var response = await client.GetAsync("/ai/provider-summary");
+        response.EnsureSuccessStatusCode();
+
+        await using var stream = await response.Content.ReadAsStreamAsync();
+        using var json = await JsonDocument.ParseAsync(stream);
+        ParseProviderSummary(json.RootElement);
     }
 
     [Then(@"provider preference should be ""(.*)""")]
@@ -489,6 +590,19 @@ public sealed class StudioSteps
     public void ThenOllamaShouldBeConfigured()
     {
         Assert.That(_scenarioContext.GetState().OllamaConfigured, Is.True);
+    }
+
+    [Then(@"provider order should include ""(.*)""")]
+    public void ThenProviderOrderShouldInclude(string provider)
+    {
+        var order = _scenarioContext.GetState().ProviderOrder;
+        Assert.That(order, Does.Contain(provider));
+    }
+
+    [Then("provider summary should include hardware profile")]
+    public void ThenProviderSummaryShouldIncludeHardwareProfile()
+    {
+        Assert.That(_scenarioContext.GetState().HasHardwareProfile, Is.True);
     }
 
     [When(@"I request continuation for ""(.*)""")]
@@ -680,6 +794,71 @@ public sealed class StudioSteps
         throw new AssertionException($"Expected voice-transcript and voice-cleanup layer operations in local state. Operations: {operationText}");
     }
 
+    [Then("local state should include voice transcript without cleanup operations")]
+    public async Task ThenLocalStateShouldIncludeVoiceTranscriptWithoutCleanupOperations()
+    {
+        var page = _scenarioContext.GetState().Page!;
+        var deadline = DateTime.UtcNow.AddSeconds(25);
+        List<string> lastOperations = [];
+
+        while (DateTime.UtcNow < deadline)
+        {
+            var payload = await page.EvaluateAsync<string>(@"
+                (() => {
+                    const raw = localStorage.getItem('jdwriter.state.v1');
+                    if (!raw) return '';
+                    const state = JSON.parse(raw);
+                    if (!state || !Array.isArray(state.notes) || state.notes.length === 0) return '';
+                    const activeNote = state.notes.find(n => n.id === state.activeNoteId) || state.notes[0];
+                    if (!activeNote || !Array.isArray(activeNote.layers)) return '';
+                    const operations = activeNote.layers.map(l => l.operation || '');
+                    return JSON.stringify(operations);
+                })();
+            ");
+
+            var operations = string.IsNullOrWhiteSpace(payload)
+                ? []
+                : JsonSerializer.Deserialize<List<string>>(payload) ?? [];
+            lastOperations = operations;
+
+            var hasTranscript = operations.Contains("voice-transcript");
+            var hasCleanup = operations.Any(op => op.StartsWith("voice-cleanup", StringComparison.OrdinalIgnoreCase));
+            if (hasTranscript && !hasCleanup)
+            {
+                await page.WaitForTimeoutAsync(500);
+                var secondPass = await page.EvaluateAsync<string>(@"
+                    (() => {
+                        const raw = localStorage.getItem('jdwriter.state.v1');
+                        if (!raw) return '';
+                        const state = JSON.parse(raw);
+                        if (!state || !Array.isArray(state.notes) || state.notes.length === 0) return '';
+                        const activeNote = state.notes.find(n => n.id === state.activeNoteId) || state.notes[0];
+                        if (!activeNote || !Array.isArray(activeNote.layers)) return '';
+                        const operations = activeNote.layers.map(l => l.operation || '');
+                        return JSON.stringify(operations);
+                    })();
+                ");
+
+                var verifiedOperations = string.IsNullOrWhiteSpace(secondPass)
+                    ? []
+                    : JsonSerializer.Deserialize<List<string>>(secondPass) ?? [];
+                if (verifiedOperations.Any(op => op.StartsWith("voice-cleanup", StringComparison.OrdinalIgnoreCase)))
+                {
+                    throw new AssertionException($"Raw mode unexpectedly produced cleanup operations: {string.Join(", ", verifiedOperations)}");
+                }
+
+                return;
+            }
+
+            await page.WaitForTimeoutAsync(250);
+        }
+
+        var operationText = lastOperations.Count == 0
+            ? "(none)"
+            : string.Join(", ", lastOperations);
+        throw new AssertionException($"Expected voice-transcript operation with no voice-cleanup operation. Operations: {operationText}");
+    }
+
     [Then("local state should include voice session transcript events")]
     public async Task ThenLocalStateShouldIncludeVoiceSessionTranscriptEvents()
     {
@@ -757,6 +936,75 @@ public sealed class StudioSteps
         throw new AssertionException($"Voice Review panel did not contain expected text '{normalized}'. Actual panel text: {latestPanelText}");
     }
 
+    [Then(@"voice recording list should contain at least (\d+) recording")]
+    public async Task ThenVoiceRecordingListShouldContainAtLeastRecording(int minimum)
+    {
+        var page = _scenarioContext.GetState().Page!;
+        var deadline = DateTime.UtcNow.AddSeconds(20);
+        var cards = page.Locator("[data-testid='voice-recording-card']");
+
+        while (DateTime.UtcNow < deadline)
+        {
+            var count = await cards.CountAsync();
+            if (count >= minimum)
+            {
+                return;
+            }
+
+            await page.WaitForTimeoutAsync(200);
+        }
+
+        var finalCount = await cards.CountAsync();
+        throw new AssertionException($"Expected at least {minimum} voice recording card(s), but found {finalCount}.");
+    }
+
+    [Then("local state should include voice recording artifacts")]
+    public async Task ThenLocalStateShouldIncludeVoiceRecordingArtifacts()
+    {
+        var page = _scenarioContext.GetState().Page!;
+        var deadline = DateTime.UtcNow.AddSeconds(25);
+        var lastPayload = string.Empty;
+
+        while (DateTime.UtcNow < deadline)
+        {
+            var payload = await page.EvaluateAsync<string>(@"
+                (() => {
+                    const raw = localStorage.getItem('jdwriter.state.v1');
+                    if (!raw) return '';
+                    const state = JSON.parse(raw);
+                    if (!state || !Array.isArray(state.notes) || state.notes.length === 0) return '';
+                    const activeNote = state.notes.find(n => n.id === state.activeNoteId) || state.notes[0];
+                    if (!activeNote) return '';
+                    const recordings = Array.isArray(activeNote.voiceRecordings) ? activeNote.voiceRecordings : [];
+                    const sessions = Array.isArray(activeNote.voiceSessions) ? activeNote.voiceSessions : [];
+                    const hasAudioCaptured = sessions.some(s =>
+                        s && Array.isArray(s.events) && s.events.some(e => e && typeof e.kind === 'string' && e.kind.toLowerCase() === 'audio-captured'));
+                    return JSON.stringify({ recordingCount: recordings.length, hasAudioCaptured });
+                })();
+            ");
+
+            lastPayload = payload;
+            if (!string.IsNullOrWhiteSpace(payload))
+            {
+                using var json = JsonDocument.Parse(payload);
+                var root = json.RootElement;
+                var recordingCount = root.TryGetProperty("recordingCount", out var countElement) && countElement.TryGetInt32(out var countValue)
+                    ? countValue
+                    : 0;
+                var hasAudioCaptured = root.TryGetProperty("hasAudioCaptured", out var audioCapturedElement) && audioCapturedElement.ValueKind == JsonValueKind.True;
+
+                if (recordingCount > 0 && hasAudioCaptured)
+                {
+                    return;
+                }
+            }
+
+            await page.WaitForTimeoutAsync(250);
+        }
+
+        throw new AssertionException($"Expected persisted voice recording artifacts in local state. Last payload: {lastPayload}");
+    }
+
     [Then(@"app background variable should be ""(.*)""")]
     public async Task ThenAppBackgroundVariableShouldBe(string expected)
     {
@@ -780,6 +1028,35 @@ public sealed class StudioSteps
             BaseAddress = new Uri(TestHostManager.ApiBaseUrl),
             Timeout = TimeSpan.FromSeconds(45)
         };
+    }
+
+    private void ParseProviderSummary(JsonElement summary)
+    {
+        var state = _scenarioContext.GetState();
+
+        state.ProviderPreference = summary.GetProperty("preference").GetString();
+        state.OllamaConfigured = summary.GetProperty("ollamaConfigured").GetBoolean();
+        state.OpenAiConfigured = summary.GetProperty("openAiConfigured").GetBoolean();
+
+        state.ProviderOrder.Clear();
+        if (summary.TryGetProperty("providerOrder", out var providerOrder) &&
+            providerOrder.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var element in providerOrder.EnumerateArray())
+            {
+                var value = element.GetString();
+                if (!string.IsNullOrWhiteSpace(value))
+                {
+                    state.ProviderOrder.Add(value);
+                }
+            }
+        }
+
+        state.HasHardwareProfile =
+            summary.TryGetProperty("hardware", out var hardware) &&
+            hardware.ValueKind == JsonValueKind.Object &&
+            hardware.TryGetProperty("preferredAcceleration", out _) &&
+            hardware.TryGetProperty("gpuNames", out _);
     }
 
     private static async Task EnsureEditorReadyAsync(IPage page)

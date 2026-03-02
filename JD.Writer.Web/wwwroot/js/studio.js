@@ -5,6 +5,14 @@ window.JDWriterStudio = {
     isRunning: false,
     testMode: false
   },
+  _audioCaptureState: {
+    recorder: null,
+    stream: null,
+    chunks: [],
+    startEpochMs: 0,
+    dotNetRef: null,
+    isRunning: false
+  },
   _stateKey: "jdwriter.state.v1",
   _settingsKey: "jdwriter.settings.v1",
   loadState: function () {
@@ -24,6 +32,185 @@ window.JDWriterStudio = {
   },
   clearSettings: function () {
     window.localStorage.removeItem(this._settingsKey);
+  },
+  isAudioCaptureSupported: function () {
+    return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder);
+  },
+  startAudioCapture: async function (dotNetRef) {
+    if (this._dictationState.testMode) {
+      this._audioCaptureState.dotNetRef = dotNetRef;
+      this._audioCaptureState.isRunning = true;
+      this._audioCaptureState.startEpochMs = Date.now();
+      this._notifyAudioCaptureStatus("recording");
+      return { started: true, reason: "mock" };
+    }
+
+    if (this._audioCaptureState.isRunning) {
+      return { started: true, reason: "already-running" };
+    }
+
+    if (!this.isAudioCaptureSupported()) {
+      this._notifyAudioCaptureStatus("unsupported");
+      return { started: false, reason: "unsupported" };
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = this._resolvePreferredAudioMimeType();
+      const recorder = mimeType
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream);
+
+      this._audioCaptureState.stream = stream;
+      this._audioCaptureState.recorder = recorder;
+      this._audioCaptureState.chunks = [];
+      this._audioCaptureState.startEpochMs = Date.now();
+      this._audioCaptureState.dotNetRef = dotNetRef;
+      this._audioCaptureState.isRunning = true;
+
+      recorder.ondataavailable = (event) => {
+        if (event && event.data && event.data.size > 0) {
+          this._audioCaptureState.chunks.push(event.data);
+        }
+      };
+
+      recorder.onstop = () => {
+        this._finalizeAudioCapture().catch(() => {});
+      };
+
+      recorder.onerror = () => {
+        this._notifyAudioCaptureStatus("error");
+        this.stopAudioCapture().catch(() => {});
+      };
+
+      recorder.start();
+      this._notifyAudioCaptureStatus("recording");
+      return { started: true };
+    } catch {
+      this._notifyAudioCaptureStatus("error");
+      this._resetAudioCaptureState();
+      return { started: false, reason: "start-failed" };
+    }
+  },
+  stopAudioCapture: async function () {
+    if (this._dictationState.testMode) {
+      if (!this._audioCaptureState.isRunning) {
+        return { stopped: true, reason: "already-stopped" };
+      }
+
+      const durationSeconds = Math.max(0.05, (Date.now() - this._audioCaptureState.startEpochMs) / 1000);
+      const payload = {
+        fileName: this._buildAudioFileName("wav"),
+        mimeType: "audio/wav",
+        durationSeconds: durationSeconds,
+        sizeBytes: 48,
+        dataUrl: "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA="
+      };
+      this._notifyAudioCaptured(payload);
+      this._notifyAudioCaptureStatus("stopped");
+      this._resetAudioCaptureState();
+      return { stopped: true, reason: "mock" };
+    }
+
+    if (!this._audioCaptureState.isRunning) {
+      return { stopped: true, reason: "already-stopped" };
+    }
+
+    const recorder = this._audioCaptureState.recorder;
+    if (!recorder) {
+      this._resetAudioCaptureState();
+      this._notifyAudioCaptureStatus("stopped");
+      return { stopped: true, reason: "missing-recorder" };
+    }
+
+    if (recorder.state === "inactive") {
+      await this._finalizeAudioCapture();
+      return { stopped: true, reason: "inactive" };
+    }
+
+    recorder.stop();
+    return { stopped: true };
+  },
+  _resolvePreferredAudioMimeType: function () {
+    const candidates = [
+      "audio/webm;codecs=opus",
+      "audio/webm",
+      "audio/ogg;codecs=opus",
+      "audio/mp4"
+    ];
+    for (const candidate of candidates) {
+      if (window.MediaRecorder && typeof window.MediaRecorder.isTypeSupported === "function" && window.MediaRecorder.isTypeSupported(candidate)) {
+        return candidate;
+      }
+    }
+
+    return "";
+  },
+  _buildAudioFileName: function (extension) {
+    const stamp = new Date().toISOString().replace(/[^\d]/g, "").slice(0, 14);
+    return `jdwriter-voice-${stamp}.${extension || "webm"}`;
+  },
+  _finalizeAudioCapture: async function () {
+    if (!this._audioCaptureState.isRunning) {
+      this._resetAudioCaptureState();
+      return;
+    }
+
+    const chunks = this._audioCaptureState.chunks || [];
+    const recorder = this._audioCaptureState.recorder;
+    const mimeType = recorder && recorder.mimeType ? recorder.mimeType : "audio/webm";
+    const blob = new Blob(chunks, { type: mimeType });
+    const dataUrl = await this._blobToDataUrl(blob);
+    const extension = mimeType.includes("ogg")
+      ? "ogg"
+      : mimeType.includes("mp4")
+        ? "mp4"
+        : "webm";
+    const durationSeconds = Math.max(0.05, (Date.now() - this._audioCaptureState.startEpochMs) / 1000);
+
+    this._notifyAudioCaptured({
+      fileName: this._buildAudioFileName(extension),
+      mimeType: mimeType,
+      durationSeconds: durationSeconds,
+      sizeBytes: blob.size,
+      dataUrl: dataUrl
+    });
+    this._notifyAudioCaptureStatus("stopped");
+    this._stopAudioStreamTracks();
+    this._resetAudioCaptureState();
+  },
+  _blobToDataUrl: function (blob) {
+    return new Promise((resolve, reject) => {
+      try {
+        const reader = new FileReader();
+        reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
+        reader.onerror = () => reject(new Error("failed-to-read-audio-blob"));
+        reader.readAsDataURL(blob);
+      } catch (error) {
+        reject(error);
+      }
+    });
+  },
+  _stopAudioStreamTracks: function () {
+    const stream = this._audioCaptureState.stream;
+    if (!stream || !stream.getTracks) {
+      return;
+    }
+
+    for (const track of stream.getTracks()) {
+      try {
+        track.stop();
+      } catch {
+        // no-op
+      }
+    }
+  },
+  _resetAudioCaptureState: function () {
+    this._audioCaptureState.recorder = null;
+    this._audioCaptureState.stream = null;
+    this._audioCaptureState.chunks = [];
+    this._audioCaptureState.startEpochMs = 0;
+    this._audioCaptureState.isRunning = false;
   },
   applySiteTheme: function (themePreference) {
     const root = document.documentElement;
@@ -74,6 +261,19 @@ window.JDWriterStudio = {
     link.remove();
     URL.revokeObjectURL(link.href);
   },
+  downloadDataUrl: function (filename, dataUrl) {
+    if (!dataUrl) {
+      return false;
+    }
+
+    const link = document.createElement("a");
+    link.href = dataUrl;
+    link.download = filename || "recording";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    return true;
+  },
   loadPluginManifest: async function () {
     try {
       const response = await fetch("/plugins/plugins.json", { cache: "no-store" });
@@ -123,12 +323,14 @@ window.JDWriterStudio = {
       this._dictationState.isRunning = false;
       this._dictationState.recognition = null;
       this._notifyTranscriptInterim("");
+      this.stopAudioCapture().catch(() => {});
       this._notifyCaptureStatus("stopped");
     };
     recognition.onerror = (event) => {
       this._dictationState.isRunning = false;
       this._dictationState.recognition = null;
       this._notifyTranscriptInterim("");
+      this.stopAudioCapture().catch(() => {});
       this._notifyCaptureStatus("error:" + (event && event.error ? event.error : "unknown"));
     };
     recognition.onresult = (event) => {
@@ -172,6 +374,7 @@ window.JDWriterStudio = {
   stopDictation: function () {
     this._dictationState.isRunning = false;
     this._notifyTranscriptInterim("");
+    this.stopAudioCapture().catch(() => {});
 
     if (this._dictationState.recognition) {
       try {
@@ -312,6 +515,22 @@ window.JDWriterStudio = {
     }
 
     ref.invokeMethodAsync("OnVoiceTranscriptFinalized", text).catch(() => {});
+  },
+  _notifyAudioCaptureStatus: function (status) {
+    const ref = this._audioCaptureState.dotNetRef || this._dictationState.dotNetRef;
+    if (!ref || typeof ref.invokeMethodAsync !== "function") {
+      return;
+    }
+
+    ref.invokeMethodAsync("OnVoiceAudioCaptureStatusChanged", status || "").catch(() => {});
+  },
+  _notifyAudioCaptured: function (payload) {
+    const ref = this._audioCaptureState.dotNetRef || this._dictationState.dotNetRef;
+    if (!ref || typeof ref.invokeMethodAsync !== "function") {
+      return;
+    }
+
+    ref.invokeMethodAsync("OnVoiceAudioCaptured", payload || {}).catch(() => {});
   }
 };
 

@@ -40,6 +40,12 @@
                 </svg>
                 Voice: @(_isVoiceRecording ? "Recording" : "Ready")
             </span>
+            <span class="status-pill @(_isAudioCapturing ? "live" : string.Empty)">
+                <svg class="icon icon-pill audio" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M6 10v4h2.8l4.1 3.4c.6.5 1.5.1 1.5-.7V7.9c0-.8-.9-1.2-1.5-.7L8.8 10H6Zm10.5-4.5-1.4 1.4a7 7 0 0 1 0 9.8l1.4 1.4a9 9 0 0 0 0-12.6Zm-2.8 2.8-1.4 1.4a3 3 0 0 1 0 4.2l1.4 1.4a5 5 0 0 0 0-7Z" />
+                </svg>
+                Audio: @(_isAudioCapturing ? "Capturing" : (_isAudioCaptureSupported ? "Standby" : "Unsupported"))
+            </span>
             @if (!string.IsNullOrWhiteSpace(WorkingLabel))
             {
                 <span class="status-pill pending" role="status" aria-live="polite">
@@ -339,15 +345,107 @@
             }
             else
             {
+                <section class="tool-window tool-panel panel-voice-console voice-console">
+                    <header>
+                        <h2>Voice Console</h2>
+                        <small>Recordings, playback, raw mode, and AI interpretation scale.</small>
+                    </header>
+
+                    <div class="voice-console-controls">
+                        <label class="voice-toggle">
+                            <input type="checkbox"
+                                   data-testid="voice-raw-mode-toggle"
+                                   @bind="_voiceRawTranscriptionMode"
+                                   @bind:after="HandleRawTranscriptionModeChangedAsync" />
+                            <span>Raw transcription mode</span>
+                        </label>
+                        <label class="voice-toggle">
+                            <input type="checkbox"
+                                   data-testid="voice-ai-cleanup-toggle"
+                                   @bind="_voiceAiInterpretationEnabled"
+                                   @bind:after="HandleVoiceAiEnabledChangedAsync" />
+                            <span>Enable AI interpretation cleanup</span>
+                        </label>
+                        <label class="voice-scale">
+                            <span>Chunk length</span>
+                            <div class="voice-scale-field">
+                                <input type="number"
+                                       data-testid="voice-chunk-length"
+                                       min="80"
+                                       max="1200"
+                                       step="20"
+                                       @bind="_voiceCleanupChunkLength"
+                                       @bind:after="HandleVoiceCleanupScaleChangedAsync" />
+                                <span class="voice-unit">chars</span>
+                            </div>
+                            <small>Characters processed per AI cleanup pass.</small>
+                        </label>
+                        <label class="voice-scale">
+                            <span>Chunk overlap</span>
+                            <div class="voice-scale-field">
+                                <input type="number"
+                                       data-testid="voice-chunk-overlap"
+                                       min="0"
+                                       max="@Math.Max(0, _voiceCleanupChunkLength - 1)"
+                                       step="10"
+                                       @bind="_voiceCleanupChunkOverlap"
+                                       @bind:after="HandleVoiceCleanupScaleChangedAsync" />
+                                <span class="voice-unit">chars</span>
+                            </div>
+                            <small>Shared context between adjacent cleanup chunks.</small>
+                        </label>
+                    </div>
+
+                    <div class="voice-recordings" data-testid="voice-recordings-list">
+                        @{
+                            var recordings = BuildVoiceRecordingItems();
+                        }
+                        @if (recordings.Count == 0)
+                        {
+                            <p class="voice-recordings-empty">No recordings yet. Start voice capture to collect audio + transcript evidence.</p>
+                        }
+                        else
+                        {
+                            @foreach (var recording in recordings)
+                            {
+                                var playbackUrl = ResolveRecordingPlaybackUrl(recording);
+                                <article class="voice-recording-card" data-testid="voice-recording-card">
+                                    <div class="voice-recording-meta">
+                                        <strong>@recording.FileName</strong>
+                                        <span>@recording.CapturedAt.ToLocalTime().ToString("MMM d h:mm:ss tt") • @($"{recording.DurationSeconds:0.00}s") • @recording.MimeType</span>
+                                        @if (!recording.IsPersistedInline)
+                                        {
+                                            <em>Session-only audio blob (export/download before reload)</em>
+                                        }
+                                    </div>
+                                    @if (!string.IsNullOrWhiteSpace(playbackUrl))
+                                    {
+                                        <audio controls preload="none" src="@playbackUrl" data-testid="voice-recording-audio"></audio>
+                                    }
+                                    else
+                                    {
+                                        <p class="voice-recordings-empty">Playback unavailable for this item.</p>
+                                    }
+                                    <div class="voice-recording-actions">
+                                        <button class="ghost-button" data-testid="voice-recording-download" @onclick="() => DownloadVoiceRecordingAsync(recording)">Download</button>
+                                        <button class="danger-button" data-testid="voice-recording-delete" @onclick="() => DeleteVoiceRecordingAsync(recording)">Delete</button>
+                                    </div>
+                                </article>
+                            }
+                        }
+                    </div>
+                </section>
+
                 @foreach (var panel in AllPanels)
                 {
+                    var panelSlug = SlugifyTitle(panel.Title);
                     var showPanelSkeleton = ShowInsightsSkeleton && panel.Items.Count == 0;
-                    <section class="tool-window" aria-busy="@showPanelSkeleton">
+                    <section class="tool-window tool-panel panel-@panelSlug" aria-busy="@showPanelSkeleton">
                         <header>
                             <h2>@panel.Title</h2>
                             <small>@panel.Description</small>
                         </header>
-                        <ul>
+                        <ul class="panel-items">
                             @if (showPanelSkeleton)
                             {
                                 @for (var row = 0; row < 4; row++)
@@ -361,7 +459,10 @@
                             {
                                 @foreach (var item in panel.Items)
                                 {
-                                    <li>@item</li>
+                                    var itemKind = GetPanelItemKind(item);
+                                    <li class="panel-item panel-item-@itemKind">
+                                        <span class="panel-item-text">@FormatPanelItemText(item)</span>
+                                    </li>
                                 }
                             }
                         </ul>

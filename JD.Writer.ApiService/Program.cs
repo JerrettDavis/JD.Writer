@@ -21,13 +21,18 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.MapGet("/", () =>
+app.MapGet("/", (WriterAiService aiService) =>
 {
     return Results.Ok(new
     {
         service = "JD.Writer AI API",
-        providerSummary = WriterAiService.GetProviderSummary(builder.Configuration)
+        providerSummary = aiService.GetRuntimeProviderSummary()
     });
+});
+
+app.MapGet("/ai/provider-summary", (WriterAiService aiService) =>
+{
+    return Results.Ok(aiService.GetRuntimeProviderSummary());
 });
 
 app.MapPost("/ai/continue", async (ContinueDraftRequest request, WriterAiService aiService, CancellationToken cancellationToken) =>

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using System.Security.Cryptography;
 using Markdig;
@@ -15,6 +16,8 @@ public partial class Home : ComponentBase, IAsyncDisposable
     private const int MaxVoiceSessionsPerNote = 120;
     private const int MaxVoiceEventsPerSession = 240;
     private const int MaxVoiceEventTextLength = 1200;
+    private const int MaxVoiceRecordingsPerNote = 12;
+    private const int MaxPersistedRecordingDataUrlLength = 420_000;
     private const string DefaultPreviewTheme = "studio";
     private static readonly TimeSpan ManualLayerCoalesceWindow = TimeSpan.FromSeconds(5);
     private static readonly List<PreviewThemeOption> PreviewThemes =
@@ -49,6 +52,7 @@ public partial class Home : ComponentBase, IAsyncDisposable
     private readonly List<SlashCommandDefinition> _slashSuggestions = [];
     private readonly SemaphoreSlim _voicePipelineLock = new(1, 1);
     private readonly Dictionary<string, InsightCacheEntry> _insightCache = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _transientRecordingDataUrls = new(StringComparer.Ordinal);
 
     private string _activeNoteId = string.Empty;
     private string _searchText = string.Empty;
@@ -73,7 +77,13 @@ public partial class Home : ComponentBase, IAsyncDisposable
     private ElementReference _editorInput;
 
     private bool _isVoiceRecording;
+    private bool _isAudioCaptureSupported = true;
+    private bool _isAudioCapturing;
     private bool _isVoiceSupported = true;
+    private bool _voiceRawTranscriptionMode;
+    private bool _voiceAiInterpretationEnabled = true;
+    private int _voiceCleanupChunkLength = 280;
+    private int _voiceCleanupChunkOverlap = 40;
     private string? _activeVoiceSessionId;
     private string? _activeVoiceSessionNoteId;
     private DotNetObjectReference<Home>? _dotNetRef;
@@ -129,6 +139,7 @@ public partial class Home : ComponentBase, IAsyncDisposable
         try
         {
             await LoadOrInitializeAsync();
+            await LoadVoiceRuntimeSettingsAsync();
             await LoadPluginManifestAsync();
             await DetectVoiceSupportAsync();
             _ = StartInitialInsightsRefreshAsync();
@@ -164,10 +175,12 @@ public partial class Home : ComponentBase, IAsyncDisposable
         try
         {
             _isVoiceSupported = await JS.InvokeAsync<bool>("JDWriterStudio.isDictationSupported");
+            _isAudioCaptureSupported = await JS.InvokeAsync<bool>("JDWriterStudio.isAudioCaptureSupported");
         }
         catch
         {
             _isVoiceSupported = false;
+            _isAudioCaptureSupported = false;
         }
     }
 
@@ -297,6 +310,95 @@ public partial class Home : ComponentBase, IAsyncDisposable
 
         UpdateSlashSuggestions();
         StateHasChanged();
+    }
+
+    private async Task LoadVoiceRuntimeSettingsAsync()
+    {
+        try
+        {
+            var raw = await JS.InvokeAsync<string?>("JDWriterStudio.loadSettings");
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                return;
+            }
+
+            var settings = JsonSerializer.Deserialize<VoiceRuntimeSettings>(raw, JsonOptions);
+            if (settings is null)
+            {
+                return;
+            }
+
+            _voiceRawTranscriptionMode = string.Equals(
+                settings.VoiceTranscriptionMode,
+                "raw",
+                StringComparison.OrdinalIgnoreCase);
+            _voiceAiInterpretationEnabled = settings.EnableVoiceCleanup;
+            if (_voiceRawTranscriptionMode)
+            {
+                _voiceAiInterpretationEnabled = false;
+            }
+            _voiceCleanupChunkLength = NormalizeVoiceChunkLength(settings.VoiceCleanupChunkLength);
+            _voiceCleanupChunkOverlap = NormalizeVoiceChunkOverlap(settings.VoiceCleanupChunkOverlap, _voiceCleanupChunkLength);
+        }
+        catch
+        {
+            // Keep runtime defaults if settings cannot be loaded.
+        }
+    }
+
+    private async Task HandleRawTranscriptionModeChangedAsync()
+    {
+        if (_voiceRawTranscriptionMode)
+        {
+            _voiceAiInterpretationEnabled = false;
+        }
+
+        await PersistVoiceRuntimeSettingsAsync();
+    }
+
+    private async Task HandleVoiceAiEnabledChangedAsync()
+    {
+        if (_voiceAiInterpretationEnabled)
+        {
+            _voiceRawTranscriptionMode = false;
+        }
+
+        await PersistVoiceRuntimeSettingsAsync();
+    }
+
+    private async Task HandleVoiceCleanupScaleChangedAsync()
+    {
+        _voiceCleanupChunkLength = NormalizeVoiceChunkLength(_voiceCleanupChunkLength);
+        _voiceCleanupChunkOverlap = NormalizeVoiceChunkOverlap(_voiceCleanupChunkOverlap, _voiceCleanupChunkLength);
+        await PersistVoiceRuntimeSettingsAsync();
+    }
+
+    private async Task PersistVoiceRuntimeSettingsAsync()
+    {
+        try
+        {
+            string? raw = null;
+            try
+            {
+                raw = await JS.InvokeAsync<string?>("JDWriterStudio.loadSettings");
+            }
+            catch
+            {
+                raw = null;
+            }
+
+            var root = JsonNode.Parse(raw ?? "{}") as JsonObject ?? new JsonObject();
+            root["voiceTranscriptionMode"] = _voiceRawTranscriptionMode ? "raw" : "assisted";
+            root["enableVoiceCleanup"] = _voiceAiInterpretationEnabled;
+            root["voiceCleanupChunkLength"] = NormalizeVoiceChunkLength(_voiceCleanupChunkLength);
+            root["voiceCleanupChunkOverlap"] = NormalizeVoiceChunkOverlap(_voiceCleanupChunkOverlap, _voiceCleanupChunkLength);
+
+            await JS.InvokeVoidAsync("JDWriterStudio.saveSettings", root.ToJsonString());
+        }
+        catch
+        {
+            // Keep session values even when persistence fails.
+        }
     }
 
     private void SelectNote(string noteId)
@@ -649,6 +751,7 @@ public partial class Home : ComponentBase, IAsyncDisposable
             {
                 StartVoiceSessionAudit(ActiveNote, "browser-speech", "capture-recording");
             }
+            await StartAudioCaptureAsync();
             StateHasChanged();
             return;
         }
@@ -669,6 +772,7 @@ public partial class Home : ComponentBase, IAsyncDisposable
         try
         {
             await JS.InvokeVoidAsync("JDWriterStudio.stopDictation");
+            await StopAudioCaptureAsync();
         }
         catch
         {
@@ -680,6 +784,157 @@ public partial class Home : ComponentBase, IAsyncDisposable
         _statusMessage = statusMessage;
         CompleteActiveVoiceSession("stopped", "browser-speech", statusMessage);
         StateHasChanged();
+    }
+
+    private async Task StartAudioCaptureAsync()
+    {
+        if (!_isAudioCaptureSupported || _dotNetRef is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var result = await JS.InvokeAsync<DictationStartResult>("JDWriterStudio.startAudioCapture", _dotNetRef);
+            if (result?.Started == true)
+            {
+                _isAudioCapturing = true;
+            }
+            else if (string.Equals(result?.Reason, "unsupported", StringComparison.OrdinalIgnoreCase))
+            {
+                _isAudioCaptureSupported = false;
+            }
+        }
+        catch
+        {
+            _isAudioCaptureSupported = false;
+        }
+    }
+
+    private async Task StopAudioCaptureAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("JDWriterStudio.stopAudioCapture");
+        }
+        catch
+        {
+            // No-op; voice dictation can continue without media recorder capture.
+        }
+        finally
+        {
+            _isAudioCapturing = false;
+        }
+    }
+
+    [JSInvokable]
+    public Task OnVoiceAudioCaptureStatusChanged(string status)
+    {
+        return InvokeAsync(() =>
+        {
+            if (string.Equals(status, "recording", StringComparison.OrdinalIgnoreCase))
+            {
+                _isAudioCapturing = true;
+            }
+            else if (string.Equals(status, "stopped", StringComparison.OrdinalIgnoreCase))
+            {
+                _isAudioCapturing = false;
+            }
+            else if (string.Equals(status, "unsupported", StringComparison.OrdinalIgnoreCase))
+            {
+                _isAudioCaptureSupported = false;
+                _isAudioCapturing = false;
+            }
+            else if (string.Equals(status, "error", StringComparison.OrdinalIgnoreCase))
+            {
+                _isAudioCapturing = false;
+                _statusMessage = "Audio recording unavailable; transcription continues";
+            }
+
+            StateHasChanged();
+        });
+    }
+
+    [JSInvokable]
+    public Task OnVoiceAudioCaptured(JsonElement payload)
+    {
+        return InvokeAsync(async () =>
+        {
+            var note = ResolveVoiceSessionNote() ?? ActiveNote;
+            var dataUrl = GetJsonString(payload, "dataUrl");
+            if (note is null || string.IsNullOrWhiteSpace(dataUrl))
+            {
+                return;
+            }
+
+            EnsureVoiceRecordingHistory(note);
+            var now = DateTimeOffset.UtcNow;
+            var recordingId = Guid.NewGuid().ToString("N");
+            var normalizedDuration = Math.Round(Math.Max(0.05, GetJsonDouble(payload, "durationSeconds")), 2);
+            var mimeType = GetJsonString(payload, "mimeType");
+            var fileName = GetJsonString(payload, "fileName");
+            var normalizedMimeType = string.IsNullOrWhiteSpace(mimeType) ? "audio/webm" : mimeType.Trim();
+            var normalizedFileName = string.IsNullOrWhiteSpace(fileName)
+                ? $"jdwriter-voice-{now:yyyyMMddHHmmss}.webm"
+                : fileName.Trim();
+            var normalizedSizeBytes = GetJsonLong(payload, "sizeBytes");
+
+            _transientRecordingDataUrls[recordingId] = dataUrl;
+
+            var persistInlineData = dataUrl.Length <= MaxPersistedRecordingDataUrlLength;
+            note.VoiceRecordings.Add(new VoiceRecording
+            {
+                RecordingId = recordingId,
+                CapturedAt = now,
+                DurationSeconds = normalizedDuration,
+                MimeType = normalizedMimeType,
+                FileName = normalizedFileName,
+                SizeBytes = normalizedSizeBytes,
+                DataUrl = persistInlineData ? dataUrl : string.Empty,
+                IsPersistedInline = persistInlineData
+            });
+            TrimVoiceRecordingHistory(note.VoiceRecordings);
+
+            AppendVoiceAuditEvent(
+                note,
+                "audio-captured",
+                $"{normalizedFileName} ({normalizedDuration:0.00}s)",
+                "browser-media-recorder",
+                detail: persistInlineData ? "audio-recording-persisted" : "audio-recording-session-only");
+
+            _statusMessage = persistInlineData
+                ? "Voice recording captured"
+                : "Voice recording captured (large file kept for session playback)";
+            await PersistStateAsync();
+            StateHasChanged();
+        });
+    }
+
+    private static string GetJsonString(JsonElement source, string propertyName)
+    {
+        return source.ValueKind == JsonValueKind.Object &&
+               source.TryGetProperty(propertyName, out var value) &&
+               value.ValueKind == JsonValueKind.String
+            ? value.GetString() ?? string.Empty
+            : string.Empty;
+    }
+
+    private static double GetJsonDouble(JsonElement source, string propertyName)
+    {
+        return source.ValueKind == JsonValueKind.Object &&
+               source.TryGetProperty(propertyName, out var value) &&
+               value.TryGetDouble(out var result)
+            ? result
+            : 0d;
+    }
+
+    private static long GetJsonLong(JsonElement source, string propertyName)
+    {
+        return source.ValueKind == JsonValueKind.Object &&
+               source.TryGetProperty(propertyName, out var value) &&
+               value.TryGetInt64(out var result)
+            ? result
+            : 0L;
     }
 
     [JSInvokable]
@@ -701,6 +956,7 @@ public partial class Home : ComponentBase, IAsyncDisposable
             {
                 ClearVoiceInterimTracking();
                 _isVoiceRecording = false;
+                _ = StopAudioCaptureAsync();
                 CompleteActiveVoiceSession("stopped", "browser-speech", "capture-stopped");
                 if (!string.Equals(_statusMessage, "Voice transcript cleaned", StringComparison.OrdinalIgnoreCase) &&
                     !string.Equals(_statusMessage, "Voice transcript inserted", StringComparison.OrdinalIgnoreCase))
@@ -712,6 +968,7 @@ public partial class Home : ComponentBase, IAsyncDisposable
             {
                 ClearVoiceInterimTracking();
                 _isVoiceRecording = false;
+                _ = StopAudioCaptureAsync();
                 _statusMessage = "Voice capture error";
                 CompleteActiveVoiceSession("error", "browser-speech", status);
             }
@@ -777,9 +1034,24 @@ public partial class Home : ComponentBase, IAsyncDisposable
                 _voicePipelineLock.Release();
             }
 
-            if (cleanupRequest is not null)
+            var shouldRunCleanup = !_voiceRawTranscriptionMode && _voiceAiInterpretationEnabled;
+            if (cleanupRequest is not null && shouldRunCleanup)
             {
                 QueueVoiceCleanup(cleanupRequest);
+            }
+            else if (cleanupRequest is not null && !shouldRunCleanup)
+            {
+                AppendVoiceAuditEvent(
+                    ActiveNote,
+                    "cleanup-skipped",
+                    cleanupRequest.RawTranscript,
+                    "settings",
+                    rangeStart: cleanupRequest.Start,
+                    rangeEnd: cleanupRequest.End,
+                    detail: _voiceRawTranscriptionMode ? "raw-transcription-mode" : "ai-interpretation-disabled");
+                _statusMessage = _voiceRawTranscriptionMode
+                    ? "Voice transcript inserted (raw mode)"
+                    : "Voice transcript inserted (AI interpretation disabled)";
             }
         });
     }
@@ -872,7 +1144,14 @@ public partial class Home : ComponentBase, IAsyncDisposable
             return null;
         }
 
-        return new VoiceCleanupRequest(note, insertion.Start, insertion.End, cleanupSegment, transcript);
+        return new VoiceCleanupRequest(
+            note,
+            insertion.Start,
+            insertion.End,
+            cleanupSegment,
+            transcript,
+            NormalizeVoiceChunkLength(_voiceCleanupChunkLength),
+            NormalizeVoiceChunkOverlap(_voiceCleanupChunkOverlap, _voiceCleanupChunkLength));
     }
 
     private async Task<EditorInsertionResult?> InsertVoiceTextAtCursorAsync(NoteDocument note, string transcript)
@@ -957,7 +1236,14 @@ public partial class Home : ComponentBase, IAsyncDisposable
 
             try
             {
-                await ApplyAiVoiceCleanupAsync(request.Note, request.Start, request.End, request.InsertedSegment, request.RawTranscript);
+                await ApplyAiVoiceCleanupAsync(
+                    request.Note,
+                    request.Start,
+                    request.End,
+                    request.InsertedSegment,
+                    request.RawTranscript,
+                    request.ChunkLength,
+                    request.ChunkOverlap);
             }
             finally
             {
@@ -973,31 +1259,54 @@ public partial class Home : ComponentBase, IAsyncDisposable
         });
     }
 
-    private async Task ApplyAiVoiceCleanupAsync(NoteDocument note, int rangeStart, int rangeEnd, string insertedSegment, string rawTranscript)
+    private async Task ApplyAiVoiceCleanupAsync(
+        NoteDocument note,
+        int rangeStart,
+        int rangeEnd,
+        string insertedSegment,
+        string rawTranscript,
+        int chunkLength = 280,
+        int chunkOverlap = 40)
     {
         try
         {
-            var response = await AiAssistant.RunSlashCommandAsync(new SlashCommandRequest(
-                "voice-cleanup",
-                TrimForPrompt(rawTranscript),
-                "Clean this voice transcript into concise markdown. Preserve intent and factual meaning. Return markdown only."));
+            var normalizedChunkLength = NormalizeVoiceChunkLength(chunkLength);
+            var normalizedChunkOverlap = NormalizeVoiceChunkOverlap(chunkOverlap, normalizedChunkLength);
+            var transcriptChunks = SplitIntoOverlappingTextChunks(rawTranscript, normalizedChunkLength, normalizedChunkOverlap);
 
-            var cleaned = response.Output?.Trim();
+            var cleanedChunks = new List<string>();
+            var responseSource = "fallback";
+            foreach (var chunk in transcriptChunks)
+            {
+                var response = await AiAssistant.RunSlashCommandAsync(new SlashCommandRequest(
+                    "voice-cleanup",
+                    TrimForPrompt(chunk),
+                    $"Clean this voice transcript chunk into concise markdown. Preserve intent and facts. Keep wording transparent and grounded. Return markdown only.\nChunk length target: {normalizedChunkLength} chars. Overlap with adjacent chunks: {normalizedChunkOverlap} chars."));
+                responseSource = response.Source;
+                var cleanedChunk = response.Output?.Trim();
+                if (!string.IsNullOrWhiteSpace(cleanedChunk))
+                {
+                    cleanedChunks.Add(cleanedChunk);
+                }
+            }
+
+            var cleaned = string.Join("\n\n", cleanedChunks).Trim();
+
             var cleanupNoOp = string.IsNullOrWhiteSpace(cleaned) || string.Equals(cleaned, insertedSegment, StringComparison.Ordinal);
             if (cleanupNoOp)
             {
                 AppendVoiceAuditEvent(
                     note,
                     "cleanup-noop",
-                    cleaned ?? string.Empty,
-                    response.Source,
+                    cleaned,
+                    responseSource,
                     rangeStart: rangeStart,
                     rangeEnd: rangeEnd,
                     detail: "cleanup-no-material-change");
                 RecordLayer(
                     note,
                     operation: "voice-cleanup-attempt",
-                    source: response.Source,
+                    source: responseSource,
                     contentBefore: note.Content,
                     contentAfter: note.Content,
                     titleBefore: note.Title,
@@ -1019,7 +1328,7 @@ public partial class Home : ComponentBase, IAsyncDisposable
                     note,
                     "cleanup-skipped",
                     insertedSegment,
-                    response.Source,
+                    responseSource,
                     rangeStart: rangeStart,
                     rangeEnd: rangeEnd,
                     detail: "concurrent-edits-detected");
@@ -1030,12 +1339,12 @@ public partial class Home : ComponentBase, IAsyncDisposable
             note.Content = ReplaceRange(note.Content, rangeStart, rangeEnd, cleaned!);
             note.UpdatedAt = DateTimeOffset.UtcNow;
             _statusMessage = "Voice transcript cleaned";
-            _lastAiSource = response.Source;
+            _lastAiSource = responseSource;
             AppendVoiceAuditEvent(
                 note,
                 "cleanup-applied",
                 cleaned,
-                response.Source,
+                responseSource,
                 rangeStart: rangeStart,
                 rangeEnd: Math.Clamp(rangeStart + cleaned!.Length, rangeStart, note.Content.Length),
                 detail: "ai-cleanup-applied");
@@ -1043,12 +1352,12 @@ public partial class Home : ComponentBase, IAsyncDisposable
             RecordLayer(
                 note,
                 operation: "voice-cleanup",
-                source: response.Source,
+                source: responseSource,
                 contentBefore: before,
                 contentAfter: note.Content,
                 titleBefore: note.Title,
                 titleAfter: note.Title,
-                annotation: "AI normalized transcript at insertion range");
+                annotation: $"AI normalized transcript at insertion range (chunk {normalizedChunkLength}, overlap {normalizedChunkOverlap})");
 
             UpdateEditorSignals();
             await PersistStateAsync();
@@ -1616,6 +1925,123 @@ public partial class Home : ComponentBase, IAsyncDisposable
         return items;
     }
 
+    private List<VoiceRecording> BuildVoiceRecordingItems()
+    {
+        if (ActiveNote is null)
+        {
+            return [];
+        }
+
+        return (ActiveNote.VoiceRecordings ?? [])
+            .Where(recording => recording is not null)
+            .OrderByDescending(recording => recording.CapturedAt)
+            .Take(MaxVoiceRecordingsPerNote)
+            .ToList();
+    }
+
+    private string ResolveRecordingPlaybackUrl(VoiceRecording recording)
+    {
+        if (_transientRecordingDataUrls.TryGetValue(recording.RecordingId, out var transientDataUrl) &&
+            !string.IsNullOrWhiteSpace(transientDataUrl))
+        {
+            return transientDataUrl;
+        }
+
+        return recording.DataUrl ?? string.Empty;
+    }
+
+    private async Task DownloadVoiceRecordingAsync(VoiceRecording recording)
+    {
+        var dataUrl = ResolveRecordingPlaybackUrl(recording);
+        if (string.IsNullOrWhiteSpace(dataUrl))
+        {
+            _statusMessage = "Recording data unavailable; export before reloading large captures";
+            return;
+        }
+
+        try
+        {
+            await JS.InvokeVoidAsync("JDWriterStudio.downloadDataUrl", recording.FileName, dataUrl);
+        }
+        catch
+        {
+            _statusMessage = "Recording download failed";
+        }
+    }
+
+    private async Task DeleteVoiceRecordingAsync(VoiceRecording recording)
+    {
+        if (ActiveNote is null || recording is null)
+        {
+            return;
+        }
+
+        var beforeCount = ActiveNote.VoiceRecordings.Count;
+        ActiveNote.VoiceRecordings = ActiveNote.VoiceRecordings
+            .Where(candidate => !string.Equals(candidate.RecordingId, recording.RecordingId, StringComparison.Ordinal))
+            .ToList();
+        _transientRecordingDataUrls.Remove(recording.RecordingId);
+
+        if (ActiveNote.VoiceRecordings.Count == beforeCount)
+        {
+            return;
+        }
+
+        AppendVoiceAuditEvent(
+            ActiveNote,
+            "audio-deleted",
+            recording.FileName,
+            "local",
+            detail: "recording-removed");
+        await PersistStateAsync();
+        _statusMessage = "Recording removed";
+    }
+
+    private static int NormalizeVoiceChunkLength(int value)
+    {
+        return Math.Clamp(value, 80, 1200);
+    }
+
+    private static int NormalizeVoiceChunkOverlap(int value, int chunkLength)
+    {
+        var normalizedChunkLength = NormalizeVoiceChunkLength(chunkLength);
+        return Math.Clamp(value, 0, Math.Max(0, normalizedChunkLength - 1));
+    }
+
+    private static List<string> SplitIntoOverlappingTextChunks(string text, int chunkLength, int chunkOverlap)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return [];
+        }
+
+        var normalizedChunkLength = NormalizeVoiceChunkLength(chunkLength);
+        var normalizedChunkOverlap = NormalizeVoiceChunkOverlap(chunkOverlap, normalizedChunkLength);
+        var step = Math.Max(1, normalizedChunkLength - normalizedChunkOverlap);
+        var chunks = new List<string>();
+
+        var index = 0;
+        while (index < text.Length)
+        {
+            var remaining = text.Length - index;
+            var take = Math.Min(normalizedChunkLength, remaining);
+            var rawChunk = text.Substring(index, take).Trim();
+            if (!string.IsNullOrWhiteSpace(rawChunk))
+            {
+                chunks.Add(rawChunk);
+            }
+
+            if (remaining <= normalizedChunkLength)
+            {
+                break;
+            }
+
+            index += step;
+        }
+
+        return chunks.Count == 0 ? [text.Trim()] : chunks;
+    }
+
     private void StartVoiceSessionAudit(NoteDocument note, string source, string detail)
     {
         var session = EnsureActiveVoiceSession(note, source);
@@ -1818,6 +2244,7 @@ public partial class Home : ComponentBase, IAsyncDisposable
                 note.UpdatedAt = DateTimeOffset.UtcNow;
             }
             EnsureVoiceAuditHistory(note);
+            EnsureVoiceRecordingHistory(note);
 
             if (note.Layers.Count == 0)
             {
@@ -1887,6 +2314,7 @@ public partial class Home : ComponentBase, IAsyncDisposable
             }
 
             var sanitizedVoiceSessions = NormalizeVoiceSessions(rawNote.VoiceSessions, updatedAt);
+            var sanitizedVoiceRecordings = NormalizeVoiceRecordings(rawNote.VoiceRecordings, updatedAt);
 
             normalized.Add(new NoteDocument
             {
@@ -1895,7 +2323,8 @@ public partial class Home : ComponentBase, IAsyncDisposable
                 Content = content,
                 UpdatedAt = updatedAt,
                 Layers = sanitizedLayers,
-                VoiceSessions = sanitizedVoiceSessions
+                VoiceSessions = sanitizedVoiceSessions,
+                VoiceRecordings = sanitizedVoiceRecordings
             });
         }
 
@@ -1967,6 +2396,12 @@ public partial class Home : ComponentBase, IAsyncDisposable
         TrimVoiceSessionHistory(note.VoiceSessions);
     }
 
+    private void EnsureVoiceRecordingHistory(NoteDocument note)
+    {
+        note.VoiceRecordings = NormalizeVoiceRecordings(note.VoiceRecordings, note.UpdatedAt);
+        TrimVoiceRecordingHistory(note.VoiceRecordings);
+    }
+
     private static void TrimVoiceSessionHistory(List<VoiceSessionAudit> sessions)
     {
         if (sessions.Count <= MaxVoiceSessionsPerNote)
@@ -1975,6 +2410,59 @@ public partial class Home : ComponentBase, IAsyncDisposable
         }
 
         sessions.RemoveRange(0, sessions.Count - MaxVoiceSessionsPerNote);
+    }
+
+    private static List<VoiceRecording> NormalizeVoiceRecordings(List<VoiceRecording>? recordings, DateTimeOffset fallbackTimestamp)
+    {
+        var sanitized = new List<VoiceRecording>();
+        foreach (var rawRecording in recordings ?? [])
+        {
+            if (rawRecording is null)
+            {
+                continue;
+            }
+
+            var capturedAt = rawRecording.CapturedAt == default ? fallbackTimestamp : rawRecording.CapturedAt;
+            var mimeType = string.IsNullOrWhiteSpace(rawRecording.MimeType) ? "audio/webm" : rawRecording.MimeType.Trim();
+            var fileName = string.IsNullOrWhiteSpace(rawRecording.FileName)
+                ? $"jdwriter-voice-{capturedAt:yyyyMMddHHmmss}.webm"
+                : rawRecording.FileName.Trim();
+
+            var normalizedDataUrl = string.IsNullOrWhiteSpace(rawRecording.DataUrl) ? string.Empty : rawRecording.DataUrl.Trim();
+            var isPersistedInline = !string.IsNullOrWhiteSpace(normalizedDataUrl);
+            if (normalizedDataUrl.Length > MaxPersistedRecordingDataUrlLength)
+            {
+                normalizedDataUrl = string.Empty;
+                isPersistedInline = false;
+            }
+
+            sanitized.Add(new VoiceRecording
+            {
+                RecordingId = string.IsNullOrWhiteSpace(rawRecording.RecordingId) ? Guid.NewGuid().ToString("N") : rawRecording.RecordingId.Trim(),
+                CapturedAt = capturedAt,
+                DurationSeconds = Math.Round(Math.Max(0.05, rawRecording.DurationSeconds), 2),
+                MimeType = mimeType,
+                FileName = fileName,
+                SizeBytes = Math.Max(0, rawRecording.SizeBytes),
+                DataUrl = normalizedDataUrl,
+                IsPersistedInline = isPersistedInline
+            });
+        }
+
+        return sanitized
+            .OrderBy(recording => recording.CapturedAt)
+            .TakeLast(MaxVoiceRecordingsPerNote)
+            .ToList();
+    }
+
+    private static void TrimVoiceRecordingHistory(List<VoiceRecording> recordings)
+    {
+        if (recordings.Count <= MaxVoiceRecordingsPerNote)
+        {
+            return;
+        }
+
+        recordings.RemoveRange(0, recordings.Count - MaxVoiceRecordingsPerNote);
     }
 
     private static string NormalizeVoiceSessionStatus(string? status)
@@ -2276,6 +2764,48 @@ public partial class Home : ComponentBase, IAsyncDisposable
         return collapsed.Length <= 56 ? collapsed : collapsed[..56] + "...";
     }
 
+    private static string GetPanelItemKind(string item)
+    {
+        var trimmed = (item ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(trimmed))
+        {
+            return "detail";
+        }
+
+        if (Regex.IsMatch(trimmed, "^[A-Za-z][^|]{1,80}:$"))
+        {
+            return "heading";
+        }
+
+        if (trimmed.StartsWith("-", StringComparison.Ordinal) || trimmed.StartsWith("...", StringComparison.Ordinal))
+        {
+            return "event";
+        }
+
+        if (trimmed.Contains('|', StringComparison.Ordinal))
+        {
+            return "metric";
+        }
+
+        return "detail";
+    }
+
+    private static string FormatPanelItemText(string item)
+    {
+        var trimmed = (item ?? string.Empty).Trim();
+        if (trimmed.StartsWith("-", StringComparison.Ordinal))
+        {
+            trimmed = trimmed[1..].TrimStart();
+        }
+
+        if (Regex.IsMatch(trimmed, "^[A-Za-z][^|]{1,80}:$"))
+        {
+            trimmed = trimmed[..^1];
+        }
+
+        return trimmed;
+    }
+
     private static string SlugifyTitle(string title)
     {
         var cleaned = Regex.Replace(title.ToLowerInvariant(), @"[^a-z0-9\-\s]", string.Empty).Trim();
@@ -2362,6 +2892,7 @@ public partial class Home : ComponentBase, IAsyncDisposable
         public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
         public List<NoteLayer> Layers { get; set; } = [];
         public List<VoiceSessionAudit> VoiceSessions { get; set; } = [];
+        public List<VoiceRecording> VoiceRecordings { get; set; } = [];
 
         public static List<NoteDocument> CreateStarterSet()
         {
@@ -2518,10 +3049,30 @@ public partial class Home : ComponentBase, IAsyncDisposable
         public int? RangeEnd { get; set; }
     }
 
+    private sealed class VoiceRecording
+    {
+        public string RecordingId { get; set; } = Guid.NewGuid().ToString("N");
+        public DateTimeOffset CapturedAt { get; set; } = DateTimeOffset.UtcNow;
+        public double DurationSeconds { get; set; }
+        public string MimeType { get; set; } = "audio/webm";
+        public string FileName { get; set; } = "jdwriter-voice.webm";
+        public long SizeBytes { get; set; }
+        public string DataUrl { get; set; } = string.Empty;
+        public bool IsPersistedInline { get; set; } = true;
+    }
+
     private sealed class DictationStartResult
     {
         public bool Started { get; set; }
         public string? Reason { get; set; }
+    }
+
+    private sealed class VoiceRuntimeSettings
+    {
+        public string VoiceTranscriptionMode { get; set; } = "assisted";
+        public bool EnableVoiceCleanup { get; set; } = true;
+        public int VoiceCleanupChunkLength { get; set; } = 280;
+        public int VoiceCleanupChunkOverlap { get; set; } = 40;
     }
 
     private sealed class EditorInsertionResult
@@ -2532,7 +3083,14 @@ public partial class Home : ComponentBase, IAsyncDisposable
     }
 
     private sealed record VoiceInterimRange(string NoteId, int Start, int End);
-    private sealed record VoiceCleanupRequest(NoteDocument Note, int Start, int End, string InsertedSegment, string RawTranscript);
+    private sealed record VoiceCleanupRequest(
+        NoteDocument Note,
+        int Start,
+        int End,
+        string InsertedSegment,
+        string RawTranscript,
+        int ChunkLength,
+        int ChunkOverlap);
 
     private sealed class PaletteCommand
     {

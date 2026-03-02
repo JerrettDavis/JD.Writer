@@ -3,6 +3,7 @@
 @using Microsoft.AspNetCore.Components.Forms
 @inject IJSRuntime JS
 @inject NavigationManager Navigation
+@inject AiAssistantClient AiClient
 
 <PageTitle>JD.Writer Settings</PageTitle>
 
@@ -67,6 +68,7 @@
                 <a href="/settings#appearance">Appearance</a>
                 <a href="/settings#editor">Editor</a>
                 <a href="/settings#ai">AI</a>
+                <a href="/settings#local-model">Local Model Wizard</a>
                 <a href="/settings#voice">Voice</a>
                 <a href="/settings#plugins">Plugins</a>
                 <a href="/settings#storage">Storage</a>
@@ -178,6 +180,8 @@
                             <select @bind="_settings.ProviderPreference">
                                 <option value="auto">Auto</option>
                                 <option value="ollama">Ollama</option>
+                                <option value="native">Native llama (GPU/CPU chain)</option>
+                                <option value="local">Local-only chain (no cloud)</option>
                                 <option value="openai">OpenAI</option>
                                 <option value="fallback">Local fallback only</option>
                             </select>
@@ -195,6 +199,217 @@
                             <span>Enable AI Continue in editor toolbar</span>
                         </label>
                     </div>
+
+                    <div id="local-model" class="local-readiness-shell" data-testid="local-readiness-wizard">
+                        <header class="local-readiness-header">
+                            <h3>
+                                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                    <path d="M4 8V6a2 2 0 0 1 2-2h5v4H4Zm9-4h5a2 2 0 0 1 2 2v2h-7V4ZM4 10h7v4H4v-4Zm9 0h7v4h-7v-4ZM4 16h7v4H6a2 2 0 0 1-2-2v-2Zm9 0h7v2a2 2 0 0 1-2 2h-5v-4Z" />
+                                </svg>
+                                Local Model Readiness Wizard
+                            </h3>
+                            <p>Walk through provider strategy, runtime selection, diagnostics, and a live probe.</p>
+                        </header>
+
+                        <div class="local-step-strip" role="tablist" aria-label="Local model wizard steps">
+                            @foreach (var step in LocalWizardSteps)
+                            {
+                                var isActive = _localWizardStep == step.Id;
+                                <button type="button"
+                                        class="local-step-chip @(isActive ? "active" : null)"
+                                        role="tab"
+                                        aria-selected="@isActive"
+                                        @onclick="() => SetLocalWizardStep(step.Id)">
+                                    <span class="step-index">@step.Id</span>
+                                    <span>@step.Label</span>
+                                </button>
+                            }
+                        </div>
+
+                        <div class="local-step-body">
+                            @if (_localWizardStep == 1)
+                            {
+                                <div class="local-step-panel">
+                                    <h4>Choose provider strategy</h4>
+                                    <p>Pick how aggressively JD.Writer should stay local-first.</p>
+                                    <div class="provider-grid">
+                                        @foreach (var option in ProviderOptions)
+                                        {
+                                            var selected = string.Equals(_settings.ProviderPreference, option.Id, StringComparison.OrdinalIgnoreCase);
+                                            <button type="button"
+                                                    class="provider-card @(selected ? "selected" : null)"
+                                                    @onclick="() => SetProviderPreference(option.Id)">
+                                                <span class="provider-label">@option.Label</span>
+                                                <small>@option.Description</small>
+                                            </button>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                            else if (_localWizardStep == 2)
+                            {
+                                <div class="local-step-panel">
+                                    <h4>Select runtime pieces</h4>
+                                    <p>Set explicit paths when shipping to controlled environments.</p>
+                                    <div class="settings-fields two-col">
+                                        <label class="field">
+                                            <span>Native CLI path</span>
+                                            <input type="text"
+                                                   @bind="_settings.NativeLlamaCliPath"
+                                                   placeholder="C:\\tools\\llama\\llama-cli.exe" />
+                                            <small>Leave empty to auto-discover from PATH.</small>
+                                        </label>
+                                        <label class="field">
+                                            <span>Model directory</span>
+                                            <input type="text"
+                                                   @bind="_settings.NativeLlamaModelDirectory"
+                                                   placeholder="C:\\models\\jdwriter" />
+                                            <small>Scanned first for GGUF models if explicit paths are empty.</small>
+                                        </label>
+                                        <label class="field">
+                                            <span>GPU model path</span>
+                                            <input type="text"
+                                                   @bind="_settings.NativeLlamaGpuModelPath"
+                                                   placeholder="C:\\models\\llama-3.2-8b-instruct-q4.gguf" />
+                                            <small>Preferred when a supported GPU is available.</small>
+                                        </label>
+                                        <label class="field">
+                                            <span>CPU model path</span>
+                                            <input type="text"
+                                                   @bind="_settings.NativeLlamaCpuModelPath"
+                                                   placeholder="C:\\models\\llama-3.2-3b-instruct-q4.gguf" />
+                                            <small>Used as deterministic local fallback.</small>
+                                        </label>
+                                    </div>
+                                </div>
+                            }
+                            else if (_localWizardStep == 3)
+                            {
+                                <div class="local-step-panel">
+                                    <div class="local-step-panel-header">
+                                        <div>
+                                            <h4>Readiness diagnostics</h4>
+                                            <p>Fetch live provider summary and hardware scan from API runtime.</p>
+                                        </div>
+                                        <button type="button"
+                                                class="settings-button ghost"
+                                                data-testid="local-readiness-refresh"
+                                                @onclick="RefreshProviderSummaryAsync"
+                                                disabled="@_isProviderSummaryLoading">
+                                            @if (_isProviderSummaryLoading)
+                                            {
+                                                <span class="inline-loader" aria-hidden="true"></span>
+                                                <span>Refreshing...</span>
+                                            }
+                                            else
+                                            {
+                                                <span>Refresh</span>
+                                            }
+                                        </button>
+                                    </div>
+
+                                    <div class="readiness-badges">
+                                        <span class="readiness-pill @GetReadinessClass()"
+                                              data-testid="local-readiness-badge">
+                                            @GetReadinessLabel()
+                                        </span>
+                                        <span class="readiness-pill muted">
+                                            Preference: @(_providerSummary?.Summary.Preference ?? "n/a")
+                                        </span>
+                                        <span class="readiness-pill muted">
+                                            Source: @(_providerSummary?.Source ?? "not loaded")
+                                        </span>
+                                    </div>
+
+                                    @if (_providerSummary?.ErrorMessage is { Length: > 0 } errorMessage)
+                                    {
+                                        <p class="readiness-warning">@errorMessage</p>
+                                    }
+
+                                    <dl class="readiness-grid" data-testid="local-readiness-summary">
+                                        <dt>Provider order</dt>
+                                        <dd>@GetProviderOrderText()</dd>
+                                        <dt>Native configured</dt>
+                                        <dd>@FormatBool(_providerSummary?.Summary.NativeLlamaConfigured)</dd>
+                                        <dt>Native enabled</dt>
+                                        <dd>@FormatBool(_providerSummary?.Summary.NativeLlamaEnabled)</dd>
+                                        <dt>Ollama configured</dt>
+                                        <dd>@FormatBool(_providerSummary?.Summary.OllamaConfigured)</dd>
+                                        <dt>Supported GPU</dt>
+                                        <dd>@FormatBool(_providerSummary?.Summary.Hardware?.HasSupportedGpu)</dd>
+                                        <dt>Acceleration</dt>
+                                        <dd>@(_providerSummary?.Summary.Hardware?.PreferredAcceleration ?? "unknown")</dd>
+                                        <dt>Detected GPUs</dt>
+                                        <dd>@GetHardwareNamesText()</dd>
+                                    </dl>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="local-step-panel">
+                                    <h4>Run live generation probe</h4>
+                                    <p>Runs the same AI continue pipeline and reports the source used.</p>
+                                    <label class="field">
+                                        <span>Probe draft seed</span>
+                                        <textarea class="probe-input"
+                                                  @bind="_probePrompt"
+                                                  rows="5"></textarea>
+                                    </label>
+                                    <div class="probe-actions">
+                                        <button type="button"
+                                                class="settings-button primary"
+                                                data-testid="local-probe-run"
+                                                @onclick="RunLocalProbeAsync"
+                                                disabled="@_isProbeRunning">
+                                            @if (_isProbeRunning)
+                                            {
+                                                <span class="inline-loader" aria-hidden="true"></span>
+                                                <span>Running...</span>
+                                            }
+                                            else
+                                            {
+                                                <span>Run Probe</span>
+                                            }
+                                        </button>
+                                        @if (!string.IsNullOrWhiteSpace(_probeResultSource))
+                                        {
+                                            <span class="readiness-pill muted" data-testid="local-probe-source">
+                                                Source: @_probeResultSource
+                                            </span>
+                                        }
+                                    </div>
+                                    @if (!string.IsNullOrWhiteSpace(_probeResultText))
+                                    {
+                                        <pre class="probe-output">@_probeResultText</pre>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(_probeError))
+                                    {
+                                        <p class="readiness-warning">@_probeError</p>
+                                    }
+                                </div>
+                            }
+                        </div>
+
+                        <div class="local-step-footer">
+                            <button type="button"
+                                    class="settings-button ghost"
+                                    data-testid="local-wizard-prev"
+                                    disabled="@(_localWizardStep <= 1)"
+                                    @onclick="PrevLocalWizardStep">
+                                Previous
+                            </button>
+                            <span class="local-step-caption" data-testid="local-wizard-step-label">
+                                Step @_localWizardStep of @LocalWizardSteps.Count: @GetCurrentStepLabel()
+                            </span>
+                            <button type="button"
+                                    class="settings-button ghost"
+                                    data-testid="local-wizard-next"
+                                    disabled="@(_localWizardStep >= LocalWizardSteps.Count)"
+                                    @onclick="NextLocalWizardStep">
+                                Next
+                            </button>
+                        </div>
+                    </div>
                 </section>
 
                 <section id="voice" class="settings-card">
@@ -209,6 +424,14 @@
                     </header>
                     <div class="settings-fields two-col">
                         <label class="field">
+                            <span>Transcription mode</span>
+                            <select data-testid="settings-voice-mode" @bind="_settings.VoiceTranscriptionMode">
+                                <option value="assisted">Assisted (raw + AI interpretation)</option>
+                                <option value="raw">Raw only (no AI interpretation)</option>
+                            </select>
+                            <small>Raw mode keeps exact speech text without AI cleanup.</small>
+                        </label>
+                        <label class="field">
                             <span>Dictation language</span>
                             <input type="text" @bind="_settings.VoiceLanguage" placeholder="en-US" />
                         </label>
@@ -219,6 +442,16 @@
                         <label class="field checkbox">
                             <input type="checkbox" @bind="_settings.EnableVoiceCleanup" />
                             <span>Run AI cleanup after final transcript</span>
+                        </label>
+                        <label class="field">
+                            <span>AI cleanup chunk length</span>
+                            <input type="number" min="80" max="1200" step="20" data-testid="settings-voice-chunk-length" @bind="_settings.VoiceCleanupChunkLength" />
+                            <small>Longer chunks preserve context; shorter chunks reduce latency.</small>
+                        </label>
+                        <label class="field">
+                            <span>AI cleanup overlap</span>
+                            <input type="number" min="0" max="600" step="10" data-testid="settings-voice-chunk-overlap" @bind="_settings.VoiceCleanupChunkOverlap" />
+                            <small>Overlap smooths transitions between interpreted chunks.</small>
                         </label>
                         <label class="field checkbox">
                             <input type="checkbox" @bind="_settings.PersistVoiceAuditTrail" />
@@ -350,11 +583,37 @@
         new("blueprint", "Blueprint")
     ];
 
+    private static readonly List<ProviderOption> ProviderOptions =
+    [
+        new("auto", "Auto", "Prefer Ollama first, then native GPU/CPU, then cloud."),
+        new("ollama", "Ollama-first", "Use Ollama first and keep native/cloud fallback available."),
+        new("native", "Native-first", "Prioritize local llama runtime before Ollama/cloud."),
+        new("local", "Local-only chain", "Use native GPU/CPU and Ollama only, with no cloud dependency."),
+        new("openai", "OpenAI-first", "Use OpenAI first, then local options."),
+        new("fallback", "Deterministic fallback", "No model calls; deterministic local transforms only.")
+    ];
+
+    private static readonly List<WizardStep> LocalWizardSteps =
+    [
+        new(1, "Provider"),
+        new(2, "Paths"),
+        new(3, "Diagnostics"),
+        new(4, "Probe")
+    ];
+
     private StudioSettings _settings = CreateDefaultSettings();
     private EditContext _editContext = default!;
     private bool _isLoading = true;
     private bool _isSaving;
     private bool _hasUnsavedChanges;
+    private int _localWizardStep = 1;
+    private bool _isProviderSummaryLoading;
+    private ProviderSummaryResult? _providerSummary;
+    private bool _isProbeRunning;
+    private string _probePrompt = "# Local readiness probe\n\nConfirm this runtime can continue local markdown drafts.";
+    private string? _probeResultText;
+    private string? _probeResultSource;
+    private string? _probeError;
     private string _statusMessage = "Loading settings...";
     private DateTimeOffset? _lastSavedAt;
 
@@ -396,6 +655,7 @@
             RebuildEditContext();
             _hasUnsavedChanges = false;
             await ApplyRuntimePreferencesAsync();
+            await RefreshProviderSummaryAsync();
         }
         catch
         {
@@ -428,6 +688,7 @@
             var serialized = JsonSerializer.Serialize(_settings, JsonOptions);
             await JS.InvokeVoidAsync("JDWriterStudio.saveSettings", serialized);
             await ApplyRuntimePreferencesAsync();
+            await RefreshProviderSummaryAsync();
             _hasUnsavedChanges = false;
             _lastSavedAt = DateTimeOffset.UtcNow;
             _statusMessage = "Settings saved";
@@ -491,6 +752,7 @@
         _hasUnsavedChanges = true;
         _statusMessage = "Defaults restored; save to persist";
         await ApplyRuntimePreferencesAsync();
+        await RefreshProviderSummaryAsync();
     }
 
     private async Task ClearWorkspaceStateAsync()
@@ -510,6 +772,163 @@
     {
         await JS.InvokeVoidAsync("JDWriterStudio.applySiteTheme", _settings.ThemePreference);
         await JS.InvokeVoidAsync("JDWriterStudio.applyReducedMotion", _settings.ReduceMotion);
+    }
+
+    private void SetProviderPreference(string providerPreference)
+    {
+        if (string.IsNullOrWhiteSpace(providerPreference))
+        {
+            return;
+        }
+
+        _settings.ProviderPreference = providerPreference.Trim().ToLowerInvariant();
+        _hasUnsavedChanges = true;
+        _statusMessage = "Unsaved changes";
+    }
+
+    private void SetLocalWizardStep(int stepId)
+    {
+        _localWizardStep = Math.Clamp(stepId, 1, LocalWizardSteps.Count);
+    }
+
+    private void NextLocalWizardStep()
+    {
+        SetLocalWizardStep(_localWizardStep + 1);
+    }
+
+    private void PrevLocalWizardStep()
+    {
+        SetLocalWizardStep(_localWizardStep - 1);
+    }
+
+    private async Task RefreshProviderSummaryAsync()
+    {
+        _isProviderSummaryLoading = true;
+        _probeError = null;
+        await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            _providerSummary = await AiClient.GetProviderSummaryAsync();
+            _statusMessage = _providerSummary.IsReachable
+                ? "Provider summary refreshed"
+                : "Provider summary unavailable; using local fallback diagnostics";
+        }
+        catch
+        {
+            _providerSummary = null;
+            _statusMessage = "Provider summary refresh failed";
+        }
+        finally
+        {
+            _isProviderSummaryLoading = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task RunLocalProbeAsync()
+    {
+        if (_isProbeRunning)
+        {
+            return;
+        }
+
+        _isProbeRunning = true;
+        _probeError = null;
+        _probeResultText = null;
+        _probeResultSource = null;
+        await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            var response = await AiClient.ContinueDraftAsync(new ContinueDraftRequest(_probePrompt));
+            _probeResultSource = response.Source;
+            _probeResultText = response.Continuation;
+            _statusMessage = $"Probe completed via {response.Source}";
+        }
+        catch
+        {
+            _probeError = "Probe failed. Check API availability and provider configuration.";
+            _statusMessage = "Probe failed";
+        }
+        finally
+        {
+            _isProbeRunning = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private string GetCurrentStepLabel()
+    {
+        return LocalWizardSteps.FirstOrDefault(step => step.Id == _localWizardStep)?.Label ?? "Step";
+    }
+
+    private string GetReadinessLabel()
+    {
+        if (_providerSummary is null)
+        {
+            return "Not Checked";
+        }
+
+        if (!_providerSummary.IsReachable)
+        {
+            return "API Unreachable";
+        }
+
+        if (_providerSummary.Summary.NativeLlamaConfigured)
+        {
+            return "Native Ready";
+        }
+
+        if (_providerSummary.Summary.OllamaConfigured)
+        {
+            return "Ollama Ready";
+        }
+
+        return "Needs Setup";
+    }
+
+    private string GetReadinessClass()
+    {
+        if (_providerSummary is null)
+        {
+            return "neutral";
+        }
+
+        if (!_providerSummary.IsReachable)
+        {
+            return "warning";
+        }
+
+        return _providerSummary.Summary.NativeLlamaConfigured || _providerSummary.Summary.OllamaConfigured
+            ? "good"
+            : "warning";
+    }
+
+    private static string FormatBool(bool? value)
+    {
+        return value switch
+        {
+            true => "Yes",
+            false => "No",
+            null => "Unknown"
+        };
+    }
+
+    private string GetProviderOrderText()
+    {
+        var providers = _providerSummary?.Summary.ProviderOrder;
+        return providers is null || providers.Count == 0
+            ? "Not reported"
+            : string.Join(" -> ", providers);
+    }
+
+    private string GetHardwareNamesText()
+    {
+        var names = _providerSummary?.Summary.Hardware?.GpuNames;
+        return names is null || names.Count == 0
+            ? "None detected"
+            : string.Join(", ", names);
     }
 
     private void NavigateHome()
@@ -544,9 +963,16 @@
         OllamaEndpoint = "http://localhost:11434",
         OllamaModel = "llama3.2:latest",
         EnableAiContinue = true,
+        NativeLlamaCliPath = string.Empty,
+        NativeLlamaModelDirectory = string.Empty,
+        NativeLlamaGpuModelPath = string.Empty,
+        NativeLlamaCpuModelPath = string.Empty,
         VoiceLanguage = "en-US",
+        VoiceTranscriptionMode = "assisted",
         EnableLiveInterimTranscript = true,
         EnableVoiceCleanup = true,
+        VoiceCleanupChunkLength = 280,
+        VoiceCleanupChunkOverlap = 40,
         PersistVoiceAuditTrail = true,
         EnablePluginManifest = true,
         AllowRemotePluginPrompts = true,
@@ -576,11 +1002,20 @@
             normalizedDensity = defaults.UiDensity;
         }
 
+        var normalizedVoiceMode = (input.VoiceTranscriptionMode ?? defaults.VoiceTranscriptionMode).Trim().ToLowerInvariant();
+        if (normalizedVoiceMode is not ("assisted" or "raw"))
+        {
+            normalizedVoiceMode = defaults.VoiceTranscriptionMode;
+        }
+
         var previewTheme = string.IsNullOrWhiteSpace(input.DefaultPreviewTheme) ? defaults.DefaultPreviewTheme : input.DefaultPreviewTheme.Trim().ToLowerInvariant();
         if (PreviewThemeOptions.All(option => !string.Equals(option.Id, previewTheme, StringComparison.OrdinalIgnoreCase)))
         {
             previewTheme = defaults.DefaultPreviewTheme;
         }
+
+        var normalizedChunkLength = Math.Clamp(input.VoiceCleanupChunkLength, 80, 1200);
+        var normalizedChunkOverlap = Math.Clamp(input.VoiceCleanupChunkOverlap, 0, Math.Max(0, normalizedChunkLength - 1));
 
         return new StudioSettings
         {
@@ -598,9 +1033,16 @@
             OllamaEndpoint = string.IsNullOrWhiteSpace(input.OllamaEndpoint) ? defaults.OllamaEndpoint : input.OllamaEndpoint.Trim(),
             OllamaModel = string.IsNullOrWhiteSpace(input.OllamaModel) ? defaults.OllamaModel : input.OllamaModel.Trim(),
             EnableAiContinue = input.EnableAiContinue,
+            NativeLlamaCliPath = NormalizePathValue(input.NativeLlamaCliPath),
+            NativeLlamaModelDirectory = NormalizePathValue(input.NativeLlamaModelDirectory),
+            NativeLlamaGpuModelPath = NormalizePathValue(input.NativeLlamaGpuModelPath),
+            NativeLlamaCpuModelPath = NormalizePathValue(input.NativeLlamaCpuModelPath),
             VoiceLanguage = string.IsNullOrWhiteSpace(input.VoiceLanguage) ? defaults.VoiceLanguage : input.VoiceLanguage.Trim(),
+            VoiceTranscriptionMode = normalizedVoiceMode,
             EnableLiveInterimTranscript = input.EnableLiveInterimTranscript,
             EnableVoiceCleanup = input.EnableVoiceCleanup,
+            VoiceCleanupChunkLength = normalizedChunkLength,
+            VoiceCleanupChunkOverlap = normalizedChunkOverlap,
             PersistVoiceAuditTrail = input.PersistVoiceAuditTrail,
             EnablePluginManifest = input.EnablePluginManifest,
             AllowRemotePluginPrompts = input.AllowRemotePluginPrompts,
@@ -627,9 +1069,16 @@
         public string OllamaEndpoint { get; set; } = "http://localhost:11434";
         public string OllamaModel { get; set; } = "llama3.2:latest";
         public bool EnableAiContinue { get; set; } = true;
+        public string NativeLlamaCliPath { get; set; } = string.Empty;
+        public string NativeLlamaModelDirectory { get; set; } = string.Empty;
+        public string NativeLlamaGpuModelPath { get; set; } = string.Empty;
+        public string NativeLlamaCpuModelPath { get; set; } = string.Empty;
         public string VoiceLanguage { get; set; } = "en-US";
+        public string VoiceTranscriptionMode { get; set; } = "assisted";
         public bool EnableLiveInterimTranscript { get; set; } = true;
         public bool EnableVoiceCleanup { get; set; } = true;
+        public int VoiceCleanupChunkLength { get; set; } = 280;
+        public int VoiceCleanupChunkOverlap { get; set; } = 40;
         public bool PersistVoiceAuditTrail { get; set; } = true;
         public bool EnablePluginManifest { get; set; } = true;
         public bool AllowRemotePluginPrompts { get; set; } = true;
@@ -639,5 +1088,12 @@
         public bool EnableTelemetry { get; set; }
     }
 
+    private static string NormalizePathValue(string? rawValue)
+    {
+        return string.IsNullOrWhiteSpace(rawValue) ? string.Empty : rawValue.Trim();
+    }
+
     private sealed record PreviewThemeOption(string Id, string Label);
+    private sealed record ProviderOption(string Id, string Label, string Description);
+    private sealed record WizardStep(int Id, string Label);
 }

@@ -86,10 +86,22 @@ dotnet test JD.Writer.sln -c Release
 
 Default values live in `JD.Writer.ApiService/appsettings.json`.
 
-- `AI:Provider`: `auto`, `ollama`, `openai`, `fallback`
+- `AI:Provider`: `auto`, `ollama`, `native`, `local`, `openai`, `fallback`
 - `AI:Ollama:Endpoint`: Ollama endpoint URL
 - `AI:Ollama:Model`: model name (default `llama3.2:latest`)
 - `AI:OpenAI:ApiKey`: optional OpenAI key
+- `AI:NativeLlama:*`: local llama.cpp chain (`CliPath`, `ModelDirectory`, `GpuModelPath`, `CpuModelPath`, context/tokens/threads)
+
+Native fallback discovery:
+
+- If `CliPath` is empty, JD.Writer probes `PATH` for `llama-cli`/`main`/`llamafile`.
+- If model paths are empty, JD.Writer probes `ModelDirectory` and common roots (`./models`, `%LOCALAPPDATA%/JD.Writer/models`, `%USERPROFILE%/.jdwriter/models`) for `.gguf` models.
+
+Local provider routing now supports:
+
+- `auto`: `ollama -> native-llama-gpu -> native-llama-cpu -> openai -> deterministic fallback`
+- `local`: `native-llama-gpu -> native-llama-cpu -> ollama -> deterministic fallback` (no cloud dependency)
+- `native`: prioritize native llama runtime before ollama/openai
 
 ## Documentation
 
