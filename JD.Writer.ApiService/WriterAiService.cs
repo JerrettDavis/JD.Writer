@@ -394,8 +394,14 @@ public sealed class WriterAiService
 
             return null;
         }
-        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or JsonException)
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException
+            or JsonException or Polly.Timeout.TimeoutRejectedException)
         {
+            // Polly.Timeout.TimeoutRejectedException is thrown by the standard resilience handler
+            // (added via AddStandardResilienceHandler in ServiceDefaults) when Ollama is slow to
+            // respond (e.g. cold model load). It is not an HttpRequestException/TaskCanceledException,
+            // so without this it previously escaped as an unhandled exception and surfaced as an
+            // HTTP 500 to the client instead of gracefully falling back to canned assist text.
             _logger.LogWarning(exception, "Ollama call failed.");
             return null;
         }
