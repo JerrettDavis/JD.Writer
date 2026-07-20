@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-FROM mcr.microsoft.com/dotnet/sdk:10.0.301 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0.302 AS build
 WORKDIR /src
 
 COPY ["JD.Writer.sln", "./"]
@@ -29,14 +29,14 @@ RUN dotnet publish JD.Writer.ApiService/JD.Writer.ApiService.csproj \
     --output /app/api \
     /p:UseAppHost=false
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0.9 AS web
+FROM mcr.microsoft.com/dotnet/aspnet:10.0.10 AS web
 WORKDIR /app
 COPY --from=build /app/web .
 ENV ASPNETCORE_URLS=http://+:8080
 EXPOSE 8080
 ENTRYPOINT ["dotnet", "JD.Writer.Web.dll"]
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0.9 AS web-standalone
+FROM mcr.microsoft.com/dotnet/aspnet:10.0.10 AS web-standalone
 WORKDIR /app
 COPY --from=build /app/web .
 ENV ASPNETCORE_URLS=http://+:8080
@@ -44,7 +44,7 @@ ENV ASPNETCORE_ENVIRONMENT=ClientOnly
 EXPOSE 8080
 ENTRYPOINT ["dotnet", "JD.Writer.Web.dll"]
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0.9 AS api
+FROM mcr.microsoft.com/dotnet/aspnet:10.0.10 AS api
 WORKDIR /app
 COPY --from=build /app/api .
 ENV ASPNETCORE_URLS=http://+:8080
