@@ -14,7 +14,7 @@
       ],
       "dest": "api",
       "properties": {
-        "TargetFramework": "net10.0"
+        "TargetFramework": "net11.0"
       },
       "includePrivateMembers": false,
       "disableDefaultFilter": false,

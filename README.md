@@ -36,7 +36,7 @@ JD.Writer aims to give you both:
 
 ### Prerequisites
 
-- .NET SDK `10.0.103` (or compatible roll-forward from `global.json`)
+- .NET SDK `11.0.100` (or compatible roll-forward from `global.json`)
 - Optional: Ollama on `http://localhost:11434`
 - Optional: Docker Desktop
 
