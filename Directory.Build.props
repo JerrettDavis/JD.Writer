@@ -12,6 +12,9 @@
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <DebugType>embedded</DebugType>
     <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+    <!-- The NBGV workflow action exports version variables once. Parallel project
+         builds must not append to the same GitHub Actions environment file. -->
+    <NBGV_SetCloudBuildVersionVars Condition="'$(GITHUB_ACTIONS)' == 'true'">false</NBGV_SetCloudBuildVersionVars>
 
     <RepositoryUrl>https://github.com/JerrettDavis/JD.Writer</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
