@@ -4,7 +4,7 @@ This guide gets JD.Writer running in minutes.
 
 ## Prerequisites
 
-- .NET SDK `10.0.103` (or compatible roll-forward from `global.json`)
+- .NET SDK `11.0.100` (or compatible roll-forward from `global.json`)
 - Optional: Ollama running at `http://localhost:11434`
 - Optional: Docker Desktop
 
