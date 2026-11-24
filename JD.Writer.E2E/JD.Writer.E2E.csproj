@@ -26,4 +26,8 @@
     <Using Include="NUnit.Framework" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\JD.Writer.ApiService\JD.Writer.ApiService.csproj" />
+  </ItemGroup>
+
 </Project>
